@@ -2,6 +2,7 @@ import { useEffect, useReducer, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { join } from "path";
 import { playText, type DoughProcess } from "../dough.ts";
+import { renderLine } from "./highlight.tsx";
 
 const SESSIONS_DIR = join(import.meta.dir, "../../sessions");
 
@@ -190,15 +191,7 @@ export default function Editor({
           return (
             <Box key={i}>
               <Text color="gray">{num} </Text>
-              {onCursorRow ? (
-                <Text>
-                  <Text>{ln.slice(0, state.cx)}</Text>
-                  <Text inverse>{ln[state.cx] ?? " "}</Text>
-                  <Text>{ln.slice(state.cx + 1)}</Text>
-                </Text>
-              ) : (
-                <Text>{ln.length ? ln : " "}</Text>
-              )}
+              {renderLine(ln, onCursorRow ? state.cx : undefined)}
             </Box>
           );
         })}
