@@ -90,7 +90,6 @@ server.ts          headless file-watcher (edit in your own editor)
 sessions/          one .dough file per session
 tools/dough/       the native engine (source + compiled binary)
 docs/              distribution notes
-Archive/           previous TidalCycles setup
 ```
 
 ## Inspiration
@@ -108,3 +107,7 @@ program ([codeberg.org/uzu/dough](https://codeberg.org/uzu/dough)) under
 **AGPL-3.0-or-later**, governed by [`tools/dough/LICENSE`](./tools/dough/LICENSE).
 We invoke it as a subprocess (stdin / OSC) rather than linking it, so the two
 are aggregated, not combined. The local patches to `dough.c` are likewise AGPL.
+
+The demo pattern in `sessions/2026-06-29.dough` is transcribed from the looping
+demo at [dough.strudel.cc](https://dough.strudel.cc) — credit for the original
+is uzu's.

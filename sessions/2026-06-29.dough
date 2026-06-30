@@ -1,7 +1,9 @@
 -- Session: 2026-06-29
--- Source: dough.strudel.cc demo (the one on loop)
+-- Source: transcribed from the looping demo pattern at https://dough.strudel.cc
+--   — dough's web demo by uzu (https://codeberg.org/uzu/dough, AGPL-3.0-or-later).
+--   Adapted/annotated for this project; credit for the original pattern is theirs.
+-- Reference: https://dough.strudel.cc/reference
 -- Format: /key/value/key/value... — each line is one sound event
--- Reference: dough.strudel.cc/reference
 
 -- ── CHORD TONES (sawtooth, 4-voice) ──────────────────────────
 -- Beat 0: A3 D4 G4 C5 (lpf 1100 — closed, dark)
