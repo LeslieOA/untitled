@@ -27,22 +27,16 @@ async function uniqueName(): Promise<string> {
 
 export default function App({ dough, file }: { dough: DoughProcess; file?: string }) {
   const { exit } = useApp();
-  const [route, setRoute] = useState<Route>("editor");
+  // Launched with a file → straight to the editor; launched bare → land on the
+  // session browser (file-selection screen).
+  const [route, setRoute] = useState<Route>(file ? "editor" : "browser");
   const [target, setTarget] = useState<Target | null>(null);
   const [refresh, setRefresh] = useState(0);
 
-  // Resolve the landing buffer: an explicit CLI file, else resume today's
-  // session if it exists, else start a fresh one.
+  // An explicit CLI file opens (and auto-plays) in the editor. Without one we
+  // stay on the browser with no target until the user picks or creates a session.
   useEffect(() => {
-    (async () => {
-      if (file) {
-        setTarget({ filename: file, isNew: false, autoplay: true });
-        return;
-      }
-      const todays = `${today()}.dough`;
-      const exists = await Bun.file(join(SESSIONS_DIR, todays)).exists();
-      setTarget({ filename: todays, isNew: !exists });
-    })();
+    if (file) setTarget({ filename: file, isNew: false, autoplay: true });
   }, [file]);
 
   async function newSession() {
@@ -50,19 +44,20 @@ export default function App({ dough, file }: { dough: DoughProcess; file?: strin
     setRoute("editor");
   }
 
-  if (!target) return <Text color="gray">…</Text>;
-
   if (route === "browser") {
     return (
       <Browser
         refresh={refresh}
+        canGoBack={!!target}
         onOpen={f => { setTarget({ filename: f, isNew: false }); setRoute("editor"); }}
         onNew={newSession}
-        onBack={() => setRoute("editor")}
+        onBack={() => { if (target) setRoute("editor"); }}
         onQuit={() => { dough.hush(); exit(); }}
       />
     );
   }
+
+  if (!target) return <Text color="gray">…</Text>;
 
   return (
     <Editor

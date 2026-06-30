@@ -10,12 +10,14 @@ export default function Browser({
   onBack,
   onQuit,
   refresh,
+  canGoBack = true,
 }: {
   onOpen: (filename: string) => void;
   onNew: () => void;
   onBack: () => void;
   onQuit: () => void;
   refresh: number; // bump to re-scan after a save
+  canGoBack?: boolean; // false when the browser is the launch screen (no editor behind it)
 }) {
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState(0);
@@ -30,7 +32,7 @@ export default function Browser({
 
   useInput((input, key) => {
     if (input === "q") return onQuit();
-    if (key.escape) return onBack();
+    if (key.escape) return canGoBack ? onBack() : undefined;
     if (input === "n") return onNew();
     if (key.upArrow || input === "k") setSelected(s => Math.max(0, s - 1));
     if (key.downArrow || input === "j") setSelected(s => Math.min(files.length - 1, s + 1));
@@ -61,7 +63,7 @@ export default function Browser({
         <Text color="gray">↑↓/jk navigate</Text>
         <Text color="green">↵ open</Text>
         <Text color="cyan">n new</Text>
-        <Text color="gray">esc editor</Text>
+        {canGoBack && <Text color="gray">esc editor</Text>}
         <Text color="gray">q quit</Text>
       </Box>
     </Box>
