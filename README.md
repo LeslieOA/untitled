@@ -89,7 +89,7 @@ setup.ts           dependency + build checks (macOS/Homebrew; Linux/WSL notes)
 server.ts          headless file-watcher (edit in your own editor)
 sessions/          one .dough file per session
 tools/dough/       the native engine (source + compiled binary)
-docs/              distribution notes
+docs/              distribution + exploration notes
 ```
 
 ## Inspiration
