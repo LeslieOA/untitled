@@ -98,3 +98,13 @@ Archive/           previous TidalCycles setup
 **DJ_Dave** (Sarah Davis) — algorave artist, live sets with code in a sidebar.
 - YouTube: https://www.youtube.com/@dj_dave____
 - Linktree: https://linktr.ee/dj_dave
+
+## License
+
+This project's own code is **MIT** — see [`LICENSE`](./LICENSE).
+
+The bundled audio engine in [`tools/dough/`](./tools/dough/) is a separate
+program ([codeberg.org/uzu/dough](https://codeberg.org/uzu/dough)) under
+**AGPL-3.0-or-later**, governed by [`tools/dough/LICENSE`](./tools/dough/LICENSE).
+We invoke it as a subprocess (stdin / OSC) rather than linking it, so the two
+are aggregated, not combined. The local patches to `dough.c` are likewise AGPL.

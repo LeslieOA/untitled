@@ -3,6 +3,7 @@
   "module": "server.ts",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "bin": {
     "generative": "src/cli.tsx"
   },
