@@ -3,7 +3,7 @@
   "module": "server.ts",
   "type": "module",
   "private": true,
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "bin": {
     "generative": "src/cli.tsx"
   },

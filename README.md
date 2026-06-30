@@ -100,13 +100,14 @@ docs/              distribution + exploration notes
 
 ## License
 
-This project's own code is **MIT** — see [`LICENSE`](./LICENSE).
+**GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)** — see
+[`LICENSE`](./LICENSE) and [`NOTICE`](./NOTICE).
 
-The bundled audio engine in [`tools/dough/`](./tools/dough/) is a separate
-program ([codeberg.org/uzu/dough](https://codeberg.org/uzu/dough)) under
-**AGPL-3.0-or-later**, governed by [`tools/dough/LICENSE`](./tools/dough/LICENSE).
-We invoke it as a subprocess (stdin / OSC) rather than linking it, so the two
-are aggregated, not combined. The local patches to `dough.c` are likewise AGPL.
+This matches the licence of the bundled audio engine in
+[`tools/dough/`](./tools/dough/)
+([codeberg.org/uzu/dough](https://codeberg.org/uzu/dough)), so the whole
+repository is consistently copyleft. Note AGPL §13: if you run a modified
+version as a network service, you must offer its users the corresponding source.
 
 The demo pattern in `sessions/2026-06-29.dough` is transcribed from the looping
 demo at [dough.strudel.cc](https://dough.strudel.cc) — credit for the original
