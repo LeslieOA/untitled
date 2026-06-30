@@ -1,0 +1,13 @@
+untitled — licensing scope and third-party components
+=====================================================
+
+The MIT License (see LICENSE) covers the original code in this repository
+authored for the "untitled" project — e.g. src/, setup.ts, server.ts,
+new-session.ts and the project tooling.
+
+It does NOT cover the bundled audio engine in tools/dough/, which is a separate
+program (https://codeberg.org/uzu/dough) licensed under the GNU Affero General
+Public License v3.0 or later (AGPL-3.0-or-later). That directory — including the
+local patches to dough.c — is governed by tools/dough/LICENSE, not by the MIT
+license. The "untitled" code invokes dough as a separate process (stdin / OSC)
+rather than linking it, so the two are aggregated, not combined into one work.
