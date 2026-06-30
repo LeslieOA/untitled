@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🌱 log2(x)</title>
+    <style>
+      body {
+        background-color: #222;
+        max-width: 500px;
+        margin: auto;
+        font-family: serif;
+        font-size: 1.2em;
+        color: #edd;
+        text-align: left;
+        padding: 20px 8px;
+      }
+      @font-face {
+        font-family: "FontWithASyntaxHighlighter";
+        src: url("/fonts/FontWithASyntaxHighlighter-Regular.woff2")
+          format("woff2");
+      }
+      a {
+        color: cyan;
+        font-size: 1em;
+        cursor: pointer;
+      }
+      textarea {
+        font-family: "FontWithASyntaxHighlighter", monospace;
+      }
+      textarea,
+      pre {
+        padding: 8px;
+        font-size: 12px;
+        border: 0;
+        overflow: auto;
+        outline: none;
+        background-color: #44444490;
+        color: white;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      input[type="range"] {
+        width: 390px;
+      }
+      #floatview {
+        user-select: none;
+      }
+      .bitnum {
+        font-size: .9em;
+        font-family: monospace;
+        color: black;
+        font-weight: bold;
+        text-align: center;
+        cursor: pointer;
+      }
+      .signbit {
+        background: yellow;
+      }
+      .expbits {
+        background: magenta;
+      }
+      .valbits {
+        background: cyan;
+      }
+    </style>
+    <script>
+
+    function setup_plot(name) {
+      const textarea = document.getElementById(name + "_code");
+      const canvas = document.getElementById(name + "_plot");
+      const debug = document.getElementById(name + "_debug");
+      const order_input = document.getElementById(name + "_order");
+      const a_input = document.getElementById(name + "_a");
+      const autocalibrate_input = document.getElementById(name + "_autocalibrate");
+
+      let ctx = canvas.getContext('2d');
+      let src = textarea.value;
+
+      let scale = 50;
+      let pan_x = 0;
+      let pan_y = 0;
+      let width,height;
+
+      function map_screen_to_local(sx,sy) {
+        const mid_x = width * .5;
+        const mid_y = height * .5;
+        const lx = (sx - mid_x - pan_x) / scale;
+        const ly = (sy - mid_y - pan_y) / scale;
+        return [lx,ly];
+      }
+
+      function map_local_to_screen(lx,ly) {
+        const mid_x = width * .5;
+        const mid_y = height * .5;
+        const sx = (mid_x + pan_x) + lx * scale;
+        const sy = (mid_y + pan_y) + ly * scale;
+        return [sx,sy];
+      }
+
+      function draw(cursor_x) {
+        width = canvas.width;
+        height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+        const xstep = 1.11;
+
+        const INPUT_ORDER = order_input ? parseInt(order_input.value, 10) : null;
+        const INPUT_A = a_input ? parseFloat(a_input.value)       : null;
+        const INPUT_AUTOCALIBRATE = autocalibrate_input ? autocalibrate_input.checked : false;
+
+        let debug_txt = "";
+
+        function print(s) { // for use inside eval()
+          debug_txt += (s+"\n");
+        }
+
+        try {
+          eval(src);
+        } catch (e) {
+          ctx.fillStyle = "rgba(255,0,0,0.3)";
+          ctx.fillRect(0,0,width,height);
+          let msg = e.message;
+          if (e.lineNumber !== undefined) msg += " (on line " + e.lineNumber + ")"; // non-standard
+          ctx.fillStyle = "rgba(255,255,0,1)";
+          ctx.fillText(msg, 25, 25);
+          return;
+        }
+
+        if (debug) {
+          debug.innerText = debug_txt;
+          debug.style.display = (debug_txt==="") ? "none" : "";
+        }
+
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = "rgba(255,0,255,.04)";
+        const [sx0,sy0] = map_local_to_screen(0,0);
+        ctx.beginPath();
+        ctx.moveTo(sx0,0);
+        ctx.lineTo(sx0,height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0,sy0);
+        ctx.lineTo(width,sy0);
+        ctx.stroke();
+
+        ctx.lineWidth = 1;
+        ctx.fillStyle = "rgba(255,0,0,.2)";
+        ctx.beginPath();
+        let min_e,max_e;
+        const d2e = (d) => (d!==0) ? Math.log10(Math.abs(d)) : -1e6;
+        ctx.moveTo(map_local_to_screen(0,0)[0],height);
+        for (let cx=0; cx<width; cx+=xstep/4) {
+          const x = map_screen_to_local(cx,0)[0];
+          const e = d2e(good(x) - bad(x));
+          const cy = height - (e + 15) * 15;
+          ctx.lineTo(cx, cy);
+        }
+        ctx.lineTo(width,height);
+        ctx.fill();
+
+        if (INPUT_A) {
+          const sx = map_local_to_screen(INPUT_A,0)[0];
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "green";
+          ctx.beginPath();
+          ctx.moveTo(sx,height);
+          ctx.lineTo(sx,0);
+          ctx.stroke();
+        }
+
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "cyan";
+        ctx.beginPath();
+        for (let cx=0; cx<width; cx+=xstep) {
+          const x = map_screen_to_local(cx,0)[0];
+          const y = good(x);
+          const cy = map_local_to_screen(0,-y)[1];
+          ctx[cx?"lineTo":"moveTo"](cx, cy);
+        }
+        ctx.stroke();
+
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "yellow";
+        ctx.beginPath();
+        for (let cx=0; cx<width; cx+=xstep) {
+          const x = map_screen_to_local(cx,0)[0];
+          const y = bad(x);
+          const cy = map_local_to_screen(0,-y)[1];
+          ctx[cx?"lineTo":"moveTo"](cx, cy);
+        }
+        ctx.stroke();
+
+        if (cursor_x !== undefined) {
+          ctx.lineWidth = 0.5;
+          ctx.strokeStyle = "white";
+          ctx.beginPath();
+          ctx.moveTo(cursor_x, 0);
+          ctx.lineTo(cursor_x, height);
+          ctx.stroke();
+          const x = map_screen_to_local(cursor_x,0)[0];
+          const ygud = good(x);
+          const ybad = bad(x);
+          const y0 = Math.min(ygud, ybad);
+          const y1 = Math.max(ygud, ybad);
+          const sy0 = map_local_to_screen(0,-y0)[1];
+          const sy1 = map_local_to_screen(0,-y1)[1];
+          ctx.fillStyle = "rgba(255,0,0,0.6)";
+          ctx.fillRect(cursor_x-5,sy0,10,sy1-sy0);
+          ctx.fillStyle = "white";
+          let str = " error=" + (ygud-ybad).toPrecision(6);
+          ctx.fillText(str, cursor_x, height - 3);
+          str = ` x=${x.toFixed(3)} y[good]=${ygud.toFixed(3)} y[bad]=${ybad.toFixed(3)}`;
+          ctx.fillText(str, cursor_x, 20);
+        }
+      }
+      draw();
+
+      textarea.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.altKey) && e.key === "Enter") {
+          src = textarea.value;
+          draw();
+        }
+      });
+
+      function zoom_at(x,y,dzoom) {
+        const [plx,ply] = map_screen_to_local(x, y);
+        scale *= 2**(dzoom * -3e-4);
+        const [lx,ly] = map_screen_to_local(x, y);
+        pan_x += (lx-plx)*scale;
+        pan_y += (ly-ply)*scale;
+      }
+      canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        zoom_at(e.offsetX, e.offsetY, e.deltaY);
+        draw();
+      });
+
+      let prev_touch_d=null, prev_touch_mx=null, prev_touch_my=null;
+      function handle_touch(e) {
+        e.preventDefault();
+        const ts = e.targetTouches;
+        const r = e.target.getBoundingClientRect();
+        if (ts.length === 1) {
+          prev_touch_d = prev_touch_mx = prev_touch_my = null;
+          draw(ts[0].pageX - r.left);
+        } else if (ts.length === 2) {
+          const [x0,y0] = [ts[0].clientX - r.x, ts[0].clientY - r.y];
+          const [x1,y1] = [ts[1].clientX - r.x, ts[1].clientY - r.y];
+          const [mx,my] = [(x0+x1)*.5, (y0+y1)*.5];
+          const d = Math.sqrt((x1-x0)**2 + (y1-y0)**2);
+          if (prev_touch_d !== null) {
+            zoom_at(mx, my, -(d-prev_touch_d) * 30);
+          }
+          if (prev_touch_mx !== null) {
+            pan_x += mx - prev_touch_mx;
+            pan_y += my - prev_touch_my;
+          }
+          [prev_touch_d,prev_touch_mx,prev_touch_my] = [d,mx,my];
+          draw();
+        } else {
+          prev_touch_d = prev_touch_mx = prev_touch_my = null;
+          draw();
+        }
+      }
+      canvas.addEventListener("touchstart", e=>handle_touch(e));
+      canvas.addEventListener("touchmove", e=>handle_touch(e));
+      canvas.addEventListener("touchend", e=>handle_touch(e));
+
+      let is_panning = false;
+      let prev_pan_mx, prev_pan_my;
+      canvas.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        is_panning = true;
+        prev_pan_mx = e.offsetX;
+        prev_pan_my = e.offsetY;
+      });
+      canvas.addEventListener("mouseup", (e) => {
+        if (!is_panning) return;
+        e.preventDefault();
+        is_panning = false;
+        draw();
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        e.preventDefault();
+        const mx = e.offsetX;
+        const my = e.offsetY;
+        if (is_panning) {
+          pan_x += mx - prev_pan_mx;
+          pan_y += my - prev_pan_my;
+          prev_pan_mx = mx;
+          prev_pan_my = my;
+          draw();
+        } else {
+          draw(mx);
+        }
+      });
+      canvas.addEventListener("mouseleave", (e) => {
+        draw();
+      });
+
+      order_input && order_input.addEventListener("input", (e) => {
+        e.target.parentElement.getElementsByClassName("txt")[0].innerText = e.target.value;
+        draw();
+      });
+
+      a_input && a_input.addEventListener("input", (e) => {
+        e.target.parentElement.getElementsByClassName("txt")[0].innerText = parseFloat(e.target.value).toFixed(3);
+        draw();
+      });
+
+      autocalibrate_input && autocalibrate_input.addEventListener("change", (e) => {
+        draw();
+      });
+
+      a_input && a_input.addEventListener("dblclick", (e) => {
+        a_input.value = 1.5;
+        e.target.parentElement.getElementsByClassName("txt")[0].innerText = parseFloat(e.target.value).toFixed(3);
+        draw();
+      });
+    }
+    </script>
+
+  </head>
+  <body>
+    <h2>🌱 log2(x)</h2>
+
+    <p>
+      we have sin(x) and exp2(x) now. only log2(x) is missing. well, our sin(x)
+      is stolen from wikipedia for now. maybe we'll eventually learn how to make
+      our own.
+    </p>
+
+    <p>
+      just like with exp2(x), there are binary-level hacks that gets us pretty
+      far. maybe it makes more than a little sense because
+      <pre>
+x = log2(exp2(x))
+x = exp2(log2(x))</pre>
+      so either is the "inverse" of the other. let's have a look
+      <canvas id="log0_plot" width="500" height="280"></canvas>
+      <textarea id="log0_code" type="text" rows="13" spellcheck="false">
+      </textarea>
+      <pre id="log0_debug"></pre>
+    </p>
+    <script>
+    log0_code.value = `
+function good(x) { // cyan
+  return Math.log2(x);
+}
+function f32_to_u32(f) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf); // float32 view into buf
+  const u32 = new Uint32Array(buf); // uint32 view into buf
+  f32[0] = f;
+  return u32[0];
+}
+function bad(x) { // yellow
+  return (f32_to_u32(x) / (1<<23)) - 127;
+}
+    `.trim();
+    setup_plot("log0");
+    </script>
+
+    <p>
+      last time we got decent results for <tt>exp2(x)</tt>, almost for free, by
+      lerping x into large integers and re-interpreting them as float32 values.
+      this time we're doing it the other way around, by converting the number
+      directly to binary, and then returning the value, almost as-is, after
+      "unlerping" it.
+    </p>
+
+    <p>
+      we can also do a stairstep version (the stairstep version was easiest
+      last time?)
+      <canvas id="log1_plot" width="500" height="280"></canvas>
+      <textarea id="log1_code" type="text" rows="13" spellcheck="false">
+      </textarea>
+      <pre id="log1_debug"></pre>
+    </p>
+    <script>
+    log1_code.value = `
+function good(x) { // cyan
+  return Math.log2(x);
+}
+function f32_to_u32(f) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf); // float32 view into buf
+  const u32 = new Uint32Array(buf); // uint32 view into buf
+  f32[0] = f;
+  return u32[0];
+}
+function bad(x) { // yellow
+  return (f32_to_u32(x) >> 23) - 127;
+}
+    `.trim();
+    setup_plot("log1");
+    </script>
+
+    <p>
+      if you have trouble understanding what's going on with the bit-shifts,
+      binary-level stuff and such, we went into more detail in the previous
+      article.
+    </p>
+
+    <p>
+      in any case, look at the stairstep version and convince yourself that the
+      "missing correction" this time is not a multiplier, but an "adder".
+      that's because the steps are all 1 unit tall today. with exp2(x), each
+      step was twice as tall as the previous one. so last time our solution was:
+      <pre>our_exp2(x) = stairstep_exp2(x) * taylorseries_exp2(x-floor(x))</pre>
+      but this time it might be more like
+      <pre>our_log2(x) = stairstep_log2(x) + taylorseries_log2(...?)</pre>
+      i'm writing "...?" as argument for <tt>taylorseries_log2()</tt> because
+      while each exp2(x) step was 1 <em>wide</em>, this time each log2(x) step
+      is twice as wide as the previous one. so you could almost say that
+      log2(x) is exp2(x) rotated 90° (which isn't as silly as it might sound).
+      <ul>
+        <li>exp2(x) - steps are 1 unit wide, and twice as tall as the previous one
+        <li>log2(x) - steps are 1 unit tall, and twice as wide as the previous one
+      </ul>
+    </p>
+
+    <p>
+      however, we almost have the answer already for how wide a step is: look
+      at the step that's 4 wide. its y-value is 2. so the width is
+      <tt>1&lt;&lt;2=4</tt>. so let's cheat and make a "corrective adder" from
+      log2(x) itself, just so we get a feel for what we have to approximate
+      next.
+      <canvas id="log2_plot" width="500" height="280"></canvas>
+      <textarea id="log2_code" type="text" rows="23" spellcheck="false">
+      </textarea>
+      <pre id="log2_debug"></pre>
+    </p>
+    <script>
+    log2_code.value = `
+function good(x) { // cyan
+  return Math.log2(x);
+}
+function f32_to_u32(f) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf); // float32 view into buf
+  const u32 = new Uint32Array(buf); // uint32 view into buf
+  f32[0] = f;
+  return u32[0];
+}
+function bad(x) { // yellow
+  const stairstep = (f32_to_u32(x) >> 23) - 127;
+  const xc = 1+(x-(2**stairstep))*(2**(-stairstep));
+  //print(xc);
+  return stairstep + Math.log2(xc);
+}
+//bad(7.99); // print(xc) above prints 1.9975, just before a stairstep..
+//bad(8);    // print(xc) above prints 1, right on a stairstep..
+             // ..confirming that we only have to approximate
+             // log2 for x between 1 and 2 now. cool!
+
+    `.trim();
+    setup_plot("log2");
+    </script>
+
+    <p>
+      so we also need an <tt>exp2(x)</tt>, huh (for <tt>2**±stairstep</tt>).
+      but the input is always an integer, so we can copy it into the exponent
+      of a float32 and apply bias (so <tt>exp2(floor(x)) =
+      u32_to_f32((x+127)&lt;&lt;23)</tt>). <small><small>(read ahead for a much
+      simpler solution to calculate <tt>xc</tt>. hint: it also involves the
+      other bit-hackery function, <tt>u32_to_f32()</tt>)</small></small>
+    </p>
+
+    </p>
+      so lets do some taylor series for <tt>log2(x)</tt>, for x between 1 and
+      2. meaning we need to be able to differentiate <tt>log2(x)</tt> as we
+      learned earlier. let's use maxima again (i like that you can just paste
+      the repl-session into a pre-tag)
+    <p>
+
+    <p>
+      on the train without internet i couldn't figure out if maxima has a
+      specific function for log2 (or logn: log in any base), but instead we can
+      just use the math equivalence that <tt>log2(x)=log(x)/log(2)</tt> (with
+      log(x) being the "natural logarithm", or the base-e logarithm):
+      <pre>
+(%i1) diff(log(x)/log(2),x,0);
+                                    log(x)
+(%o1)                               ──────
+                                    log(2)
+(%i2) diff(log(x)/log(2),x,1);
+                                      1
+(%o2)                              ────────
+                                   log(2) x
+(%i3) diff(log(x)/log(2),x,2);
+                                        1
+(%o3)                             - ─────────
+                                            2
+                                    log(2) x
+(%i4) diff(log(x)/log(2),x,3);
+                                       2
+(%o4)                              ─────────
+                                           3
+                                   log(2) x
+(%i5) diff(log(x)/log(2),x,4);
+                                        6
+(%o5)                             - ─────────
+                                            4
+                                    log(2) x
+      </pre>
+      the pattern/sequence of the fraction numerator may seem a little weird
+      (1,-1,2,-6,...): to find the next numerator, multiply the current
+      numerator with the current order, and flip the sign. so the next
+      numerator is 24:
+      <ul>
+        <li>-(1*1)=-1
+        <li>-(-1*2)=2
+        <li>-(2*3)=-6
+        <li>-(-6*4)=24
+        <li>-(24*5)=-120
+        <li>...
+      </ul>
+    </p>
+
+    <p>
+      note: maxima doesn't give you an error for log2(x). it just assumes it's
+      a function of some kind and gives you the differentiation syntax (in
+      Leibniz notation), like saying "yeah the 3rd derivative of log2(x) is the
+      3rd derivative of log2(x)":
+      <pre>
+(%i9) diff(log2(x),x,3);
+                                  3
+                                 d
+(%o9)                            ─── (log2(x))
+                                   3
+                                 dx
+      </pre>
+    </p>
+
+    <p>
+      less talk more taylor
+      
+      <canvas id="log3_plot" width="500" height="280"></canvas>
+      <label><input type="range" id="log3_order" min="0" max="20" value="3"/> order=<span class="txt">3</span></label><br/>
+      <label title="double-click to reset a=1.5"><input type="range" id="log3_a" min="1" max="2" step="0.0001" value="1.5"/> <span style="color:green">a</span>=<span class="txt">1.500</span></label><br/>
+      <label><input type="checkbox" id="log3_autocalibrate"/> auto-calibrate</label><br/>
+      <textarea id="log3_code" type="text" rows="47" spellcheck="false">
+      </textarea>
+    </p>
+    <script>
+    log3_code.value = `
+function good(x) { // cyan
+  return Math.log2(x);
+}
+function f32_to_u32(f) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf); // float32 view into buf
+  const u32 = new Uint32Array(buf); // uint32 view into buf
+  f32[0] = f;
+  return u32[0];
+}
+function u32_to_f32(u) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf);
+  const u32 = new Uint32Array(buf);
+  u32[0] = u;
+  return f32[0];
+}
+function taylorlog2_between_1_and_2(x) {
+  //return Math.log2(x); // reference
+  const factorial = (x) => x<=1 ? 1 : x*factorial(x-1);
+  let sum = 0;
+  let next_numerator = 1;
+  for (let order=0; order<=INPUT_ORDER; ++order) {
+    if (order===0) {
+      sum += Math.log2(INPUT_A); // "0th order derivative" (itself)
+    } else { // apply differentiation pattern:
+      const c = (next_numerator / (Math.log(2) * (INPUT_A ** order)));
+      next_numerator *= -order;
+      sum += (c/factorial(order)) * ((x-INPUT_A)**order);
+    }
+  }
+  return sum;
+}
+function bad(x) { // yellow
+  const stairstep = (f32_to_u32(x) >> 23) - 127;
+  const stairexp = u32_to_f32((stairstep+127)<<23);
+  const invstairexp = u32_to_f32((-stairstep+127)<<23);
+  const xc = 1+(x-stairexp)*invstairexp;
+  let c=0;
+  if (INPUT_AUTOCALIBRATE) {
+    const c1 = Math.log2(1)-taylorlog2_between_1_and_2(1);
+    const c2 = Math.log2(2)-taylorlog2_between_1_and_2(2);
+    c = c1 + (c2-c1)*(xc-1);
+  }
+  return stairstep + taylorlog2_between_1_and_2(xc) + c;
+}
+    `.trim();
+    setup_plot("log3");
+    </script>
+
+    <p>
+      not bad! i get the best results with auto-calibrate on, but it's
+      interesting that it usually has a sweet spot that's not quite a=1.5. for
+      order=3 it's around a=1.473, improving maxerr=0.0016 to maxerr=0.0013.
+      it's also wild how much worse the taylor series performs for a=1 where it
+      hardly converges at all (try turning auto-calibrate off to see how bad it
+      is), and even a=2 is much better. before i started plotting and making
+      tools i couldn't see these things, and just kinda assumed taylor series
+      were terrible for <tt>log2(x)</tt>, and maybe they are a little bit, but
+      not as much as i thought.
+    </p>
+
+    <p>
+      the one dough.c "steals" at the time of writing uses division, and taylor
+      series don't (being polynomials). so apparently there are other ways of
+      approximating functions :) i also tried correcting the smoother
+      non-stairstep one from the top, but the error is the same, so i prefer
+      the stairstep one (slightly simpler code)
+    </p>
+
+    <p>
+      let's have a look at the "stolen one" using division.
+      <canvas id="log4_plot" width="500" height="280"></canvas>
+      <textarea id="log4_code" type="text" rows="23" spellcheck="false">
+      </textarea>
+    </p>
+    <script>
+    log4_code.value = `
+function good(x) { // cyan
+  return Math.log2(x);
+}
+function f32_to_u32(f) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf); // float32 view into buf
+  const u32 = new Uint32Array(buf); // uint32 view into buf
+  f32[0] = f;
+  return u32[0];
+}
+function u32_to_f32(u) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf);
+  const u32 = new Uint32Array(buf);
+  u32[0] = u;
+  return f32[0];
+}
+function bad(x) { // yellow
+  const u0 = f32_to_u32(x);
+  const f0 = u32_to_f32((u0 & ((1<<23)-1)) | (126<<23));
+  return u0*(2**-23) - 124.22544637 - 1.498030302 * f0 - 1.72587999 / (0.3520887068 + f0);
+}
+    `.trim();
+    setup_plot("log4");
+    </script>
+
+    <p>
+      roughly as good as a 6th order above, but for a lot less work. also, the line
+      <pre>const f0 = u32_to_f32((u0 & ((1<<23)-1)) | (126<<23));</pre>
+      made me realise i could replace
+<pre>
+const stairstep = (f32_to_u32(x) >> 23) - 127;
+const stairexp = u32_to_f32((stairstep+127)<<23);
+const invstairexp = u32_to_f32((-stairstep+127)<<23);
+const xc = 1+(x-stairexp)*invstairexp;</pre>
+      with
+<pre>
+const xc = u32_to_f32((f32_to_u32(x) & ((1<<23)-1)) | (127<<23));</pre>
+      it replaces the exponent of the float32 with 127, squeezing any
+      ..,[1/2;1], [1;2], [2;4], [4;8], [8,16],.. range into [1;2]. the previous
+      code did that by trying to "unlerp" x from its stairstep width lol.
+    </p>
+
+    <details>
+      <summary id="loc">show page source</summary>
+      <pre id="pre"></pre>
+    </details>
+
+    <script>
+    // render source code
+    const html = document.querySelector("html").outerHTML;
+    const loc = html.split("\n").length;
+    document.querySelector("#pre").textContent = html;
+    document.querySelector("#loc").textContent = `show source (${loc} loc)`;
+    </script>
+
+  </body>
+</html>
+

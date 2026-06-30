@@ -1,0 +1,205 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main>
+      <section>
+        <h2>dough example: memory</h2>
+        <p>
+          here's an example of how the internal memory of
+          <a href="/">dough</a> can be visualized:
+        </p>
+        <!-- <section> -->
+        <div style="display: flex">
+          <button class="play">run</button>
+          <button class="stop">stop</button>
+        </div>
+        <textarea
+          style="flex: 1"
+          id="input"
+          rows="12"
+          spellcheck="false"
+          style="height: 100%"
+        ></textarea>
+        <canvas
+          width="384"
+          height="320"
+          style="image-rendering: pixelated"
+        ></canvas>
+        <!-- </section> -->
+        <script type="module">
+          import { Dough } from "../dough.js";
+
+          const dough = new Dough({ base: "../" });
+          const doughbuffer = new Uint8Array(dough.memory.buffer);
+
+          const canvas = document.querySelector("canvas");
+          canvas.style = "width:100%;";
+          const ctx = canvas.getContext("2d");
+          const image = new ImageData(canvas.width, canvas.height);
+          // doughview is cut to exactly fit inside the canvas
+          const doughview = doughbuffer.subarray(0, image.data.length);
+          const getIndex = (x, y, w) => {
+            x = Math.floor(x);
+            y = Math.floor(y);
+            return (y * w + x) * 4;
+          };
+          const random256 = () => Math.floor(Math.random() * 256);
+          const fill = (e, r = 20) => {
+            // get click in canvas coords:
+            const rect = ctx.canvas.getBoundingClientRect();
+            const scaleX = ctx.canvas.width / rect.width;
+            const scaleY = ctx.canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            const w = e.target.width;
+            const index = getIndex(x, y, w);
+            // draw a square
+            const value = random256();
+            for (let yi = y - r; yi < y + r; yi++) {
+              const index = getIndex(x, yi, e.target.width);
+              /* const value = random256(); */
+              for (let xi = index - r * 4; xi < index + r * 4; xi++) {
+                /* const value = random256(); */
+                doughview[xi] = value;
+              }
+            }
+          };
+          let isMouseDown = false;
+          let brush = 2;
+
+          canvas.addEventListener("mousedown", () => (isMouseDown = true));
+          canvas.addEventListener("mouseup", () => (isMouseDown = false));
+          canvas.addEventListener("mouseleave", () => (isMouseDown = false));
+          canvas.onmousemove = (e) => isMouseDown && fill(e, brush);
+          canvas.onclick = (e) => fill(e, brush);
+
+          const input = document.getElementById("input");
+          /* input.value = `/dough/play/freq/60/duration/.1/time/0/repeat/.2`; */
+
+          let initialCode;
+          if (window.location.hash) {
+            try {
+              initialCode = atob(window.location.hash.slice(1));
+              console.log("using code from url");
+            } catch (err) {
+              console.error("unable to read hash as base64");
+            }
+          }
+
+          input.value =
+            initialCode ||
+            `/dough/play
+/freq/110
+/duration/.5
+/attack/.02
+/release/.5
+/sound/saw
+/lpf/300
+/lpe/3
+/lpd/.5
+/lpq/.4
+/gain/.3
+/delay/.5`;
+
+          /*
+// karplus strong
+/dough/play
+/duration/.01
+/sound/6
+/lpf/800
+/gain/.3
+/delay/1
+/delaytime/0.009/delayfeedback/.99
+
+// cool picture
+/dough/play
+/duration/.001
+/sound/6
+/lpf/800
+/gain/.3
+/delay/1
+/delaytime/0.026/delayfeedback/.99
+*/
+
+          input.addEventListener("keydown", (e) => {
+            if ((e.ctrlKey || e.altKey) && e.key === "Enter") {
+              update(input.value);
+              window.location.hash = btoa(input.value);
+            }
+            if ((e.ctrlKey || e.altKey) && e.keyCode === 190) {
+              // period
+              e.preventDefault();
+              dough.hush();
+            }
+          });
+          const playButton = document.querySelector(".play");
+          playButton.addEventListener("click", () => update(input.value));
+          const stopButton = document.querySelector(".stop");
+          stopButton.addEventListener("click", () => stop());
+
+          let raf;
+          function render_memory() {
+            if (doughview) {
+              image.data.set(doughview);
+              ctx.putImageData(image, 0, 0);
+              raf = requestAnimationFrame(render_memory);
+            }
+          }
+
+          let active = false;
+          function activate() {
+            active = true;
+          }
+          function deactivate() {
+            active = false;
+            cancelAnimationFrame(raf);
+          }
+          async function update(code) {
+            await dough.ready;
+            //dough.evaluate({ dough: "reset" });
+            if (!active) {
+              activate();
+              render_memory();
+            }
+            const blocks = code.split("\n\n").filter(Boolean);
+            blocks.forEach((block) => {
+              const event = dough.parsePath(block);
+              dough.evaluate({ dough: "play", ...event });
+            });
+          }
+
+          function stop() {
+            dough.evaluate({ dough: "reset" });
+            deactivate();
+            dough.hush();
+          }
+        </script>
+
+        <!-- source code -->
+        <br />
+        <br />
+        <details>
+          <summary id="loc">show page source</summary>
+          <pre id="pre" style="max-height: 600px"></pre>
+        </details>
+        <br />
+        <a href="/bakery/">back to the bakery</a>
+
+        <!-- render source code -->
+        <script>
+          fetch(window.location.href)
+            .then((res) => res.text())
+            .then((html) => {
+              const loc = html.split("\n").length;
+              document.querySelector("#pre").textContent = html;
+              document.querySelector(
+                "#loc"
+              ).textContent = `show source (${loc} loc)`;
+            });
+        </script>
+      </section>
+    </main>
+  </body>
+</html>

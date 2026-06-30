@@ -1,0 +1,464 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="/style.css" />
+    <style>
+      .ghost {
+        opacity: 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div style="max-width: 100%; width: 1000px; padding: 16px">
+        <h2>dough example: keyboard</h2>
+        <p>
+          here's an example that lets us play <a href="/">dough</a> with your
+          computer's keyboard:
+        </p>
+        <div>
+          <span style="color: cyan" id="instructions">
+            click somewhere, then type something on your keyboard...
+          </span>
+        </div>
+        <br />
+        <div id="gui" style="display: flex; flex-wrap: wrap; gap: 4px"></div>
+        <button id="startmidi">start midi</button>
+        <script type="module">
+          import { Dough, reference } from "/dough.js";
+          // init dough with base url
+          const dough = new Dough({
+            base: "/",
+          });
+
+          const params = [
+            [
+              "sound",
+              {
+                type: "select",
+                value: "tri",
+                values: "tri sine saw zaw pulse pulze white pink brown".split(
+                  " "
+                ),
+              },
+            ],
+            ["pw", { value: 0.5, min: 0, max: 1, dec: 2, x: 1 }],
+            ["gain", { value: 0.5, min: 0, max: 1, dec: 2, active: true }],
+            ["postgain", { value: 1, min: 0, max: 1, dec: 2 }],
+            //["velocity", { value: 1, min: 0, max: 1, dec: 2 }],
+            // freq
+            // time
+            // duration
+            // repeat
+            ["attack", { value: 0.001, min: 0.001, max: 2, dec: 3 }],
+            ["decay", { value: 0, min: 0, max: 2, dec: 3 }],
+            ["sustain", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["release", { value: 0.001, min: 0.001, max: 3, dec: 2 }],
+            // voice
+            // reset
+            // glide
+            ["speed", { value: 1, min: 0.1, max: 10, dec: 2 }],
+            // note
+            ["penv", { value: 0, min: 0, max: 12, dec: 2 }],
+            ["patt", { value: 0, min: 0, max: 1, dec: 2 }],
+            ["pdec", { value: 0, min: 0, max: 1, dec: 2 }],
+            ["vib", { value: 0, min: 0, max: 16, dec: 2 }],
+            ["vibmod", { value: 0, min: 0, max: 4, dec: 2 }],
+            ["fm", { value: 0, min: 0, max: 12, dec: 2 }],
+            ["fmh", { value: 1, min: 0.1, max: 8, dec: 2 }],
+            ["fme", { value: 1, min: 0, max: 8, dec: 2 }],
+            ["fma", { value: 0, min: 0, max: 2, dec: 2 }],
+            ["fmd", { value: 0, min: 0, max: 2, dec: 2 }],
+            ["fms", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["fmr", { value: 0, min: 0, max: 2, dec: 2 }],
+            ["am", { value: 0, min: 0, max: 16, dec: 2 }],
+            ["amdepth", { value: 0.5, min: 0, max: 1, dec: 2 }],
+            ["rm", { value: 0, min: 0, max: 220, dec: 2 }],
+            ["rmdepth", { value: 0.5, min: 0, max: 1, dec: 2 }], // freq track?
+            ["phaser", { value: 0, min: 0, max: 16, dec: 2 }],
+            ["phaserdepth", { value: 0.5, min: 0, max: 1, dec: 2 }], // no effect?
+            ["phasersweep", { value: 2000, min: 100, max: 8000, dec: 0 }],
+            ["phasercenter", { value: 2000, min: 100, max: 8000, dec: 0 }],
+            ["flanger", { value: 2000, min: 100, max: 8000, dec: 0 }],
+            ["flangerdepth", { value: 0.5, min: 0, max: 1, dec: 2 }],
+            ["flangerfeedback", { value: 0, min: 0, max: 1, dec: 2 }],
+            ["chorus", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["chorusdepth", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["chorusdelay", { value: 20, min: 1, max: 100, dec: 2 }],
+            [
+              "ftype",
+              {
+                type: "select",
+                value: "12db",
+                values: ["12db", "24db", "48db"],
+              },
+            ],
+            ["lpf", { value: 20000, min: 1, max: 20000, dec: 2 }],
+            ["lpq", { value: 1, min: 0, max: 16, dec: 2 }],
+            ["lpe", { value: 0, min: 0, max: 8, dec: 2 }],
+            ["lpa", { value: 1, min: 0, max: 2, dec: 2 }],
+            ["lpd", { value: 1, min: 0, max: 2, dec: 2 }],
+            ["lps", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["lpr", { value: 1, min: 0, max: 2, dec: 2 }],
+            ["hpf", { value: 100, min: 100, max: 20000, dec: 2 }], // broken...
+            ["hpq", { value: 0, min: 0, max: 16, dec: 2 }],
+            ["hpe", { value: 1, min: 0, max: 8, dec: 2 }],
+            ["hpa", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["hpd", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["hps", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["hpr", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["bpf", { value: 1, min: 0, max: 20000, dec: 2 }],
+            ["bpq", { value: 1, min: 0, max: 16, dec: 2 }],
+            ["bpe", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["bpa", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["bpd", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["bps", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["bpr", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["coarse", { value: 1, min: 1, max: 32, dec: 0 }],
+            ["crush", { value: 32, min: 0, max: 32, dec: 2 }],
+            ["distort", { value: 0, min: 0, max: 5, dec: 2 }],
+            ["distortvol", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["pan", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["delay", { value: 0.5, min: 0, max: 1, dec: 2 }],
+            ["delayfeedback", { value: 0.5, min: 0, max: 0.999, dec: 2 }],
+            ["delaytime", { value: 0.12, min: 0.001, max: 1, dec: 2 }],
+            ["verb", { value: 0.5, min: 0, max: 1, dec: 2 }],
+            ["verbdecay", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["verbdamp", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["verbpredelay", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["verbdiff", { value: 1, min: 0, max: 1, dec: 2 }],
+            /* ["begin", { value: 1, min: 0, max: 1, dec: 2 }],
+            ["end", { value: 1, min: 0, max: 1, dec: 2 }], */
+          ];
+
+          const lerp = (v, min, max) => v * (max - min) + min;
+          const invLerp = (v, min, max) => (v - min) / (max - min);
+
+          // returns active params, ready to be passed to dough
+          function readInputs() {
+            let values = {};
+            for (let [param, { value, active }] of params) {
+              if (active) {
+                values[param] = value;
+              }
+            }
+            return values;
+          }
+
+          // turns active params into base64 and updates url hash
+          function updateHash() {
+            const inputs = readInputs();
+            const hash = btoa(JSON.stringify(inputs));
+            window.location.hash = btoa(JSON.stringify(inputs));
+          }
+
+          // reads url hash and assigns params
+          function readHash() {
+            const hash = window.location.hash.slice(1);
+            if (hash) {
+              const inputs = JSON.parse(atob(hash));
+              Object.entries(inputs).forEach(([key, value]) => {
+                const param = params.find(([p, options]) => key === p);
+                if (param) {
+                  param[1].value = inputs[key];
+                  param[1].active = true;
+                }
+              });
+            }
+          }
+
+          function renderInputs(guiwrapper) {
+            for (let [name, options] of params) {
+              const wrapper = document.createElement("div");
+              wrapper.style = "background-color:#222;width:180px";
+              const template = `<label style="justify-content:space-between;align-items:center;">
+                <div style="display:flex;justify-content:space-between">
+                  <span style="display:flex"><input type="checkbox" class="active" />${name}</span><span class="valuewrap"></span>
+                </div>
+                <div class="inputwrap"></div>
+                </label>`;
+              wrapper.insertAdjacentHTML("beforeend", template);
+              const inputwrap = wrapper.querySelector(".inputwrap");
+              const valuewrap = wrapper.querySelector(".valuewrap");
+              const activeCheckbox = wrapper.querySelector(
+                "input[type=checkbox]"
+              );
+              let toggleActive = (active, silent = false) => {
+                options.active = active;
+                activeCheckbox.checked = active;
+                if (active) {
+                  wrapper.classList.remove("ghost");
+                } else {
+                  wrapper.classList.add("ghost");
+                }
+                if (!silent) {
+                  updateHash();
+                }
+              };
+              toggleActive(options.active, true);
+
+              activeCheckbox.checked = options.active;
+              activeCheckbox.onchange = (e) => toggleActive(e.target.checked);
+
+              if (options.type === "select") {
+                // SELECT
+                const { value, min, max } = options;
+                inputwrap.insertAdjacentHTML(
+                  "beforeend",
+                  `<select id="input_${name}" class="input" value="${value}">${options.values
+                    .map(
+                      (v) =>
+                        `<option value="${v}" ${
+                          v === value ? "selected" : ""
+                        }>${v}</option>`
+                    )
+                    .join("")}</select>`
+                );
+                const input = inputwrap.querySelector("select");
+                input.oninput = (e) => {
+                  const actual = e.target.value;
+                  valuewrap.innerText = "";
+                  options.value = actual;
+                  console.log("input");
+                  toggleActive(true);
+                  updateHash();
+                  console.log(name, actual);
+                };
+              } else {
+                // SLIDER
+                const { value, min, max, dec = 2, x = 2 } = options;
+                const normalized = Math.pow(invLerp(value, min, max), 1 / x);
+
+                inputwrap.insertAdjacentHTML(
+                  "beforeend",
+                  `<input id="input_${name}" class="input" type="range" min="0" max="1" step="0.001" value="${normalized}" style="padding:0px;width:100%" />`
+                );
+                valuewrap.innerText = value.toFixed(dec);
+
+                const input = inputwrap.querySelector("input");
+
+                input.onchange = (e) => updateHash();
+
+                input.oninput = (e) => {
+                  const actual = lerp(e.target.value ** x, min, max);
+                  valuewrap.innerText = actual.toFixed(dec);
+                  options.value = actual;
+                  toggleActive(true, true);
+                  const msg = {
+                    dough: "update_all",
+                    // ...values, // no need to send all again
+                    [name]: actual,
+                  };
+                  dough.evaluate(msg);
+                  console.log(msg);
+                  //console.log(name, actual)
+                };
+              }
+              guiwrapper.appendChild(wrapper);
+            }
+          }
+          const guiwrapper = document.querySelector("#gui");
+          readHash();
+          renderInputs(guiwrapper);
+
+          const initAudio = new Promise((resolve) =>
+            document.addEventListener("click", function init() {
+              const ac = new AudioContext();
+              instructions.innerText = "great! now let's type some letters";
+              resolve(ac);
+              document.removeEventListener("click", init);
+            })
+          );
+
+          const instructions = document.getElementById("instructions");
+
+          let rows = [
+            "yxcvbnm,.-",
+            "asdfghjklöä",
+            "qwertzuiopü",
+            "1234567890ß",
+          ];
+          const allowedKeys = rows.join("");
+          let scale = [0, 2, 3, 5, 7, 8, 10];
+
+          let key2step = (key, rowoffset = 5) => {
+            const row = rows.findIndex((row) => row.includes(key));
+            const col = rows[row]?.indexOf(key);
+            if (![row, col].includes(-1)) {
+              return row * rowoffset + col;
+            }
+            return null;
+          };
+          let step2midi = (step) => {
+            if (!step) return 0;
+            const oct = Math.floor(step / scale.length) * 12;
+            const deg = scale[step % scale.length];
+            return oct + deg;
+          };
+
+          let midi2freq = (midi) => Math.pow(2, (midi - 69) / 12) * 440;
+          const key2freq = (key, rowOffset = 5, midiOffset = 40) =>
+            midi2freq(step2midi(key2step(key, rowOffset)) + midiOffset);
+
+          let keys = [];
+          const printKeys = () => {
+            if (!keys.length) {
+              instructions.innerText = "...";
+            } else {
+              instructions.innerText = keys.join("");
+            }
+          };
+
+          const handleKeydown = async (e) => {
+            await initAudio;
+            if (!dough) {
+              return;
+            }
+            if (e.metaKey || e.ctrlKey || !allowedKeys.includes(e.key)) {
+              return;
+            }
+            e.preventDefault();
+            if (keys.includes(e.key)) {
+              return;
+            }
+            keys.push(e.key);
+            printKeys();
+            const freq = key2freq(e.key);
+            const values = readInputs();
+            const msg = {
+              dough: "play",
+              freq,
+              sound: "sine",
+              gain: 1,
+              group: e.keyCode,
+              ...values,
+            };
+            console.log("msg", msg);
+            dough.evaluate(msg);
+          };
+          const handleKeyup = async (e) => {
+            await initAudio;
+            if (!dough) {
+              return;
+            }
+            keys = keys.filter((k) => k !== e.key);
+            printKeys();
+            dough.evaluate({
+              dough: "hush_group",
+              group: e.keyCode,
+            });
+
+            e.preventDefault();
+          };
+
+          document.onkeydown = handleKeydown;
+          document.onkeyup = handleKeyup;
+
+          class Midi {
+            constructor({ onMessage }) {
+              this.init();
+              this.onMessage = onMessage;
+            }
+            trigger(id, data) {
+              // console.log("trigger", id, data);
+              const parsed = this.parseMidiMessage(data);
+              this.onMessage(parsed);
+            }
+            async init() {
+              const midiAccess = await navigator.requestMIDIAccess({
+                sysex: false,
+              });
+              for (let input of midiAccess.inputs.values()) {
+                if (input.state != "connected") continue;
+                input.onmidimessage = (e) => this.trigger(input.id, e.data);
+              }
+              midiAccess.onstatechange = (evt) => {
+                if (evt.port.type == "input" && evt.port.state == "connected") {
+                  console.log(
+                    "MIDI device connected:",
+                    evt.port.name,
+                    "PORT:",
+                    evt.port.id
+                  );
+                  evt.port.onmidimessage = (e) =>
+                    this.trigger(evt.port.id, e.data);
+                }
+              };
+            }
+            parseMidiMessage(msg) {
+              let msgType = msg[0] & 0xf0;
+              let channel = (msg[0] & 0x0f) + 1;
+              /* if (msgType == 0xb0 && msg.length == 3) {
+                let cc = msg[1];
+                let val = msg[2];
+                let value = (val / 127) * 2 - 1; // to bipolar
+                return { type: "CC", channel, cc, value };
+              }
+              if (msgType == 0xe0 && msg.length == 3) {
+                let lsb = msg[1];
+                let msb = msg[2];
+                let val = (msb << 7) | lsb;
+                let value = (val / 16383) * 2 - 1; // to bipolar
+                return { type: "PITCHBEND", channel, value };
+              } */
+              if (msgType == 0x90 && msg.length == 3) {
+                let note = msg[1];
+                let velocity = msg[2] / 127; // normalize
+                return { type: "NOTE_ON", channel, note, velocity };
+              }
+              if (msgType == 0x80 && msg.length == 3) {
+                let note = msg[1];
+                return { type: "NOTE_OFF", channel, note };
+              }
+            }
+          }
+          startmidi.onclick = () => {
+            new Midi({
+              onMessage: (msg) => {
+                if (msg.type === "NOTE_ON") {
+                  const values = readInputs();
+                  const freq = midi2freq(msg.note);
+                  dough.evaluate({
+                    dough: "play",
+                    freq,
+                    sound: "sine",
+                    gain: 1,
+                    group: msg.note,
+                    ...values,
+                  });
+                } else if (msg.type === "NOTE_OFF") {
+                  dough.evaluate({
+                    dough: "hush_group",
+                    group: msg.note,
+                  });
+                }
+              },
+            });
+          };
+        </script>
+
+        <!-- source code -->
+        <br />
+        <br />
+        <details>
+          <summary id="loc">show page source</summary>
+          <pre id="pre" style="max-height: 600px"></pre>
+        </details>
+        <br />
+        <a href="/bakery/">back to the bakery</a>
+
+        <!-- render source code -->
+        <script>
+          fetch(window.location.href)
+            .then((res) => res.text())
+            .then((html) => {
+              const loc = html.split("\n").length;
+              document.querySelector("#pre").textContent = html;
+              document.querySelector(
+                "#loc"
+              ).textContent = `show source (${loc} loc)`;
+            });
+        </script>
+      </div>
+    </main>
+  </body>
+</html>

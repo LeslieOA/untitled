@@ -1,0 +1,23 @@
+# links
+
+- https://garten.salat.dev/audio-in-c/puzzle.html
+- https://github.com/ideoforms/signalflow
+- https://emscripten.org/docs/api_reference/wasm_audio_worklets.html
+- https://tweakpane.github.io/docs/input-bindings/#number
+- https://www.patreon.com/TheSimpleJoyOfProgramming
+- https://depth-first.com/articles/2019/10/16/compiling-c-to-webassembly-and-running-it-without-emscripten/
+- https://surma.dev/things/c-to-webassembly/
+- https://hacks.mozilla.org/2017/07/memory-in-webassembly-and-why-its-safer-than-you-think/
+- https://www.webaudiomodules.com/docs/examples
+- https://opensoundcontrol.stanford.edu/spec-1_0.html
+- https://libwebsockets.org/
+- https://apple.stackexchange.com/questions/16842/restarting-sound-service
+- https://eprints.soton.ac.uk/446896/1/Final_thesis_v1.3_Troise_26643626_Library_Copy.pdf
+  - https://phd.protodome.com/
+- https://reillyspitzfaden.com/posts/2025/09/reverb-part-2/
+- https://cytomic.com/technical-papers/
+  - https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf
+- Paul Adenot - We need to go faster @ WAC https://www.youtube.com/watch?v=bdhwmoizwrM
+- giulioz: Sound Chip, whisper me your secrets! https://www.youtube.com/watch?v=reGeRiCkkNE
+  - https://github.com/thement/midiverb_emulatorasf
+- esm https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c

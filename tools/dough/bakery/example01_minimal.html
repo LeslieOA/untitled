@@ -1,0 +1,58 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main>
+      <section>
+        <h2>dough example: minimal</h2>
+        <p>
+          here's a minimal example of using <a href="/">dough</a> in the
+          browser:
+        </p>
+        <button id="run">run</button>
+        <button id="stop">stop</button>
+        <script type="module">
+          // load dough from cdn
+          import { Dough } from "https://unpkg.com/dough-synth@0.1.4/dough.js";
+          // init dough with base url
+          const dough = new Dough({
+            base: "https://unpkg.com/dough-synth@0.1.4/",
+          });
+          // add button event handlers
+          document.querySelector("#run").onclick = () => {
+            // start a sine sound
+            dough.evaluate({ dough: "play", sound: "sine" });
+          };
+          document.querySelector("#stop").onclick = () => {
+            // stop all sounds
+            dough.hush();
+          };
+        </script>
+
+        <!-- source code -->
+        <br />
+        <br />
+        <details>
+          <summary id="loc">show page source</summary>
+          <pre id="pre" style="max-height: 600px"></pre>
+        </details>
+        <br />
+        <a href="/bakery/">back to the bakery</a>
+
+        <!-- render source code -->
+        <script>
+          fetch(window.location.href)
+            .then((res) => res.text())
+            .then((html) => {
+              const loc = html.split("\n").length;
+              document.querySelector("#pre").textContent = html;
+              document.querySelector(
+                "#loc"
+              ).textContent = `show source (${loc} loc)`;
+            });
+        </script>
+      </section>
+    </main>
+  </body>
+</html>

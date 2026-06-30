@@ -1,0 +1,194 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main>
+      <section>
+        <h2>dough example: strudel</h2>
+        <p>
+          here's an example of how <a href="/">dough</a> can be used with
+          <a href="https://strudel.cc" target="_blank">strudel</a>:
+        </p>
+        <textarea
+          spellcheck="false"
+          style="width: 100%"
+          rows="24"
+          id="input"
+        ></textarea>
+        <button id="play">play</button>
+        <button id="stop">stop</button>
+        <script type="module">
+          /* import {
+        Dough,
+        doughsamples,
+      } from "https://unpkg.com/dough-synth@0.1.9/dough.js";*/
+          import { Dough, doughsamples } from "../dough.js"; // local dev
+          doughsamples("github:eddyflux/crate");
+
+          class StrudelDough {
+            pattern;
+            latency = 0.1;
+            cps = 0.5;
+            origin;
+            strudel;
+            constructor() {
+              this.ready = this.init();
+            }
+            async init() {
+              // init dough immediately, so that it can attach the document click event to initAudio immediately
+              this.dough = new Dough({
+                //base: "https://unpkg.com/dough-synth@0.1.9/",
+                base: "../", // local dev
+                onTick: ({ t0, t1 }) => {
+                  if (!this.pattern) {
+                    return;
+                  }
+                  this.origin ??= t0;
+                  const a = (t0 - this.origin) * this.cps;
+                  const b = (t1 - this.origin) * this.cps;
+
+                  const haps = this.pattern
+                    .queryArc(a, b)
+                    .filter((hap) => hap.hasOnset());
+                  if (!haps.length) {
+                    return;
+                  }
+                  haps.forEach((hap) => {
+                    const time =
+                      hap.whole.begin.valueOf() / this.cps +
+                      this.origin +
+                      this.latency;
+                    const duration = hap.duration.valueOf() / this.cps;
+                    const event = {
+                      dough: "play",
+                      ...hap.value,
+                      time,
+                      duration,
+                    };
+                    if (event.note && typeof event.note === "string") {
+                      event.note = this.strudel.noteToMidi(event.note);
+                    }
+                    //console.log("event", JSON.stringify(Object.entries(event)));
+                    this.dough.evaluate(event);
+                  });
+                },
+              });
+              // now we can do the async stuff
+              const strudel = await import(
+                "https://esm.sh/@strudel/core@1.2.5"
+              );
+              const tonal = await import("https://esm.sh/@strudel/tonal@1.2.5");
+              const mini = await import("https://esm.sh/@strudel/mini@1.2.5");
+              mini.miniAllStrings();
+              const setcps = (cps) => (this.cps = cps);
+              const setcpm = (cpm) => setcps(cpm / 60);
+              this.strudel = { ...strudel, ...tonal, ...mini, setcps, setcpm };
+              Object.assign(globalThis, this.strudel);
+            }
+            async evaluate(code) {
+              await this.ready;
+              let patterns = [];
+              this.strudel.Pattern.prototype.play = function () {
+                patterns.push(this);
+              };
+              new Function(code)();
+              this.pattern = stack(...patterns);
+            }
+            stop() {
+              this.pattern = undefined;
+              this.origin = undefined;
+            }
+          }
+
+          const repl = new StrudelDough();
+
+          const hint = document.querySelector("#hint");
+
+          const input = document.querySelector("#input");
+          const play = document.querySelector("#play");
+          play.onclick = () => repl.evaluate(input.value);
+          const stop = document.querySelector("#stop");
+          stop.onclick = () => repl.stop();
+
+          let initialCode;
+          if (window.location.hash) {
+            try {
+              initialCode = atob(window.location.hash.slice(1));
+              console.log("using code from url");
+            } catch (err) {
+              console.error("unable to read hash as base64");
+            }
+          }
+
+          input.value =
+            initialCode ||
+            `chord("Dbm11")
+.struct("x*8").voicing()
+.sound("<square saw>")
+.vib("1:.5").clip(1)
+.pw(.2)
+.lpf(sine.range(20,200).slow(2)).lpq(.2).lpe(4).lpd(.6)
+.delay(.5)
+.gain(.4)
+.play()
+
+note("<c1 c2 c3 [c4 <g5 f5 eb5 d5>]>*8").s("square")
+.add(note(1))
+//.struct("x*1").clip(1)//.dist(.7)
+//.off(1/4,add(note(12)))
+.lpf(sine.range(200,5000).slow(8))
+.fm(1).fmh(1).rarely(ply(2)).delay(.5)
+.play()
+
+s("crate_bd:1*4").dist(1).gain(10)//.hpf(1400).hpq(.2)
+//.play()
+
+n("[0 .. 3]*2").s("crate_hh")
+.dec(.4).dist(.8)
+//.play()
+
+s("<white>*16").dec(.08)
+.hpf(sine.rangex(200,12000).slow(4)).hpq(.4)
+//.rarely(ply(2))//.delay(.9)
+.play()`;
+
+          input.addEventListener("keydown", (e) => {
+            if ((e.ctrlKey || e.altKey) && e.key === "Enter") {
+              repl.evaluate(input.value);
+              window.location.hash = btoa(input.value);
+            }
+            if ((e.ctrlKey || e.altKey) && e.keyCode === 190) {
+              // period
+              e.preventDefault();
+              repl.stop();
+            }
+          });
+        </script>
+
+        <!-- source code -->
+        <br />
+        <br />
+        <details>
+          <summary id="loc">show page source</summary>
+          <pre id="pre" style="max-height: 600px"></pre>
+        </details>
+        <br />
+        <a href="/bakery/">back to the bakery</a>
+
+        <!-- render source code -->
+        <script>
+          fetch(window.location.href)
+            .then((res) => res.text())
+            .then((html) => {
+              const loc = html.split("\n").length;
+              document.querySelector("#pre").textContent = html;
+              document.querySelector(
+                "#loc"
+              ).textContent = `show source (${loc} loc)`;
+            });
+        </script>
+      </section>
+    </main>
+  </body>
+</html>

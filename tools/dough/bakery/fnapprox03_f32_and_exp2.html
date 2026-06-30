@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🌱 floating-point numbers and exp2(x)</title>
+    <style>
+      body {
+        background-color: #222;
+        max-width: 500px;
+        margin: auto;
+        font-family: serif;
+        font-size: 1.2em;
+        color: #edd;
+        text-align: left;
+        padding: 20px 8px;
+      }
+      @font-face {
+        font-family: "FontWithASyntaxHighlighter";
+        src: url("/fonts/FontWithASyntaxHighlighter-Regular.woff2")
+          format("woff2");
+      }
+      a {
+        color: cyan;
+        font-size: 1em;
+        cursor: pointer;
+      }
+      textarea {
+        font-family: "FontWithASyntaxHighlighter", monospace;
+      }
+      textarea,
+      pre {
+        padding: 8px;
+        font-size: 12px;
+        border: 0;
+        overflow: auto;
+        outline: none;
+        background-color: #44444490;
+        color: white;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      input[type="range"] {
+        width: 390px;
+      }
+      #floatview {
+        user-select: none;
+      }
+      .bitnum {
+        font-size: .9em;
+        font-family: monospace;
+        color: black;
+        font-weight: bold;
+        text-align: center;
+        cursor: pointer;
+      }
+      .signbit {
+        background: yellow;
+      }
+      .expbits {
+        background: magenta;
+      }
+      .valbits {
+        background: cyan;
+      }
+    </style>
+    <script>
+
+    function setup_plot(name) {
+      const textarea = document.getElementById(name + "_code");
+      const canvas = document.getElementById(name + "_plot");
+      const debug = document.getElementById(name + "_debug");
+      const order_input = document.getElementById(name + "_order");
+      const a_input = document.getElementById(name + "_a");
+      const triangle_input = document.getElementById(name + "_triangle");
+
+      let ctx = canvas.getContext('2d');
+      let src = textarea.value;
+
+      let scale = 50;
+      let pan_x = 0;
+      let pan_y = 0;
+      let width,height;
+
+      function map_screen_to_local(sx,sy) {
+        const mid_x = width * .5;
+        const mid_y = height * .5;
+        const lx = (sx - mid_x - pan_x) / scale;
+        const ly = (sy - mid_y - pan_y) / scale;
+        return [lx,ly];
+      }
+
+      function map_local_to_screen(lx,ly) {
+        const mid_x = width * .5;
+        const mid_y = height * .5;
+        const sx = (mid_x + pan_x) + lx * scale;
+        const sy = (mid_y + pan_y) + ly * scale;
+        return [sx,sy];
+      }
+
+      function draw(cursor_x) {
+        width = canvas.width;
+        height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+        const xstep = 1.11;
+
+        const INPUT_ORDER    = order_input    ? parseInt(order_input.value, 10) : null;
+        const INPUT_A        = a_input        ? parseFloat(a_input.value)       : null;
+        const INPUT_TRIANGLE = triangle_input ? triangle_input.checked          : null;
+
+        let debug_txt = "";
+
+        function print(s) { // for use inside eval()
+          debug_txt += (s+"\n");
+        }
+
+        try {
+          eval(src);
+        } catch (e) {
+          ctx.fillStyle = "rgba(255,0,0,0.3)";
+          ctx.fillRect(0,0,width,height);
+          let msg = e.message;
+          if (e.lineNumber !== undefined) msg += " (on line " + e.lineNumber + ")"; // non-standard
+          ctx.fillStyle = "rgba(255,255,0,1)";
+          ctx.fillText(msg, 25, 25);
+          return;
+        }
+
+        if (debug) {
+          debug.innerText = debug_txt;
+          debug.style.display = (debug_txt==="") ? "none" : "";
+        }
+
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = "rgba(255,0,255,.04)";
+        const [sx0,sy0] = map_local_to_screen(0,0);
+        ctx.beginPath();
+        ctx.moveTo(sx0,0);
+        ctx.lineTo(sx0,height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0,sy0);
+        ctx.lineTo(width,sy0);
+        ctx.stroke();
+
+        ctx.lineWidth = 1;
+        ctx.fillStyle = "rgba(255,0,0,.2)";
+        ctx.beginPath();
+        let min_e,max_e;
+        const d2e = (d) => (d!==0) ? Math.log10(Math.abs(d)) : -1e6;
+        ctx.moveTo(0,height);
+        for (let cx=0; cx<width; cx+=xstep/4) {
+          const x = map_screen_to_local(cx,0)[0];
+          const e = d2e(good(x) - bad(x));
+          const cy = height - (e + 15) * 15;
+          ctx.lineTo(cx, cy);
+        }
+        ctx.lineTo(width,height);
+        ctx.fill();
+
+        if (INPUT_A) {
+          const sx = map_local_to_screen(INPUT_A,0)[0];
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "green";
+          ctx.beginPath();
+          ctx.moveTo(sx,height);
+          ctx.lineTo(sx,0);
+          ctx.stroke();
+        }
+
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "cyan";
+        ctx.beginPath();
+        for (let cx=0; cx<width; cx+=xstep) {
+          const x = map_screen_to_local(cx,0)[0];
+          const y = good(x);
+          const cy = map_local_to_screen(0,-y)[1];
+          ctx[cx?"lineTo":"moveTo"](cx, cy);
+        }
+        ctx.stroke();
+
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "yellow";
+        ctx.beginPath();
+        for (let cx=0; cx<width; cx+=xstep) {
+          const x = map_screen_to_local(cx,0)[0];
+          const y = bad(x);
+          const cy = map_local_to_screen(0,-y)[1];
+          ctx[cx?"lineTo":"moveTo"](cx, cy);
+        }
+        ctx.stroke();
+
+        if (cursor_x !== undefined) {
+          ctx.lineWidth = 0.5;
+          ctx.strokeStyle = "white";
+          ctx.beginPath();
+          ctx.moveTo(cursor_x, 0);
+          ctx.lineTo(cursor_x, height);
+          ctx.stroke();
+          const x = map_screen_to_local(cursor_x,0)[0];
+          const ygud = good(x);
+          const ybad = bad(x);
+          const y0 = Math.min(ygud, ybad);
+          const y1 = Math.max(ygud, ybad);
+          const sy0 = map_local_to_screen(0,-y0)[1];
+          const sy1 = map_local_to_screen(0,-y1)[1];
+          ctx.fillStyle = "rgba(255,0,0,0.6)";
+          ctx.fillRect(cursor_x-5,sy0,10,sy1-sy0);
+          ctx.fillStyle = "white";
+          let str = " error=" + (ygud-ybad).toPrecision(6);
+          ctx.fillText(str, cursor_x, height - 3);
+          str = ` x=${x.toFixed(3)} y[good]=${ygud.toFixed(3)} y[bad]=${ybad.toFixed(3)}`;
+          ctx.fillText(str, cursor_x, 20);
+        }
+      }
+      draw();
+
+      textarea.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.altKey) && e.key === "Enter") {
+          src = textarea.value;
+          draw();
+        }
+      });
+
+      function zoom_at(x,y,dzoom) {
+        const [plx,ply] = map_screen_to_local(x, y);
+        scale *= 2**(dzoom * -3e-4);
+        const [lx,ly] = map_screen_to_local(x, y);
+        pan_x += (lx-plx)*scale;
+        pan_y += (ly-ply)*scale;
+      }
+      canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        zoom_at(e.offsetX, e.offsetY, e.deltaY);
+        draw();
+      });
+
+      let prev_touch_d=null, prev_touch_mx=null, prev_touch_my=null;
+      function handle_touch(e) {
+        e.preventDefault();
+        const ts = e.targetTouches;
+        const r = e.target.getBoundingClientRect();
+        if (ts.length === 1) {
+          prev_touch_d = prev_touch_mx = prev_touch_my = null;
+          draw(ts[0].pageX - r.left);
+        } else if (ts.length === 2) {
+          const [x0,y0] = [ts[0].clientX - r.x, ts[0].clientY - r.y];
+          const [x1,y1] = [ts[1].clientX - r.x, ts[1].clientY - r.y];
+          const [mx,my] = [(x0+x1)*.5, (y0+y1)*.5];
+          const d = Math.sqrt((x1-x0)**2 + (y1-y0)**2);
+          if (prev_touch_d !== null) {
+            zoom_at(mx, my, -(d-prev_touch_d) * 30);
+          }
+          if (prev_touch_mx !== null) {
+            pan_x += mx - prev_touch_mx;
+            pan_y += my - prev_touch_my;
+          }
+          [prev_touch_d,prev_touch_mx,prev_touch_my] = [d,mx,my];
+          draw();
+        } else {
+          prev_touch_d = prev_touch_mx = prev_touch_my = null;
+          draw();
+        }
+      }
+      canvas.addEventListener("touchstart", e=>handle_touch(e));
+      canvas.addEventListener("touchmove", e=>handle_touch(e));
+      canvas.addEventListener("touchend", e=>handle_touch(e));
+
+      let is_panning = false;
+      let prev_pan_mx, prev_pan_my;
+      canvas.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        is_panning = true;
+        prev_pan_mx = e.offsetX;
+        prev_pan_my = e.offsetY;
+      });
+      canvas.addEventListener("mouseup", (e) => {
+        if (!is_panning) return;
+        e.preventDefault();
+        is_panning = false;
+        draw();
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        e.preventDefault();
+        const mx = e.offsetX;
+        const my = e.offsetY;
+        if (is_panning) {
+          pan_x += mx - prev_pan_mx;
+          pan_y += my - prev_pan_my;
+          prev_pan_mx = mx;
+          prev_pan_my = my;
+          draw();
+        } else {
+          draw(mx);
+        }
+      });
+      canvas.addEventListener("mouseleave", (e) => {
+        draw();
+      });
+
+      order_input && order_input.addEventListener("input", (e) => {
+        e.target.parentElement.getElementsByClassName("txt")[0].innerText = e.target.value;
+        draw();
+      });
+
+      a_input && a_input.addEventListener("input", (e) => {
+        e.target.parentElement.getElementsByClassName("txt")[0].innerText = parseFloat(e.target.value).toFixed(3);
+        draw();
+      });
+
+      triangle_input && triangle_input.addEventListener("change", (e) => {
+        draw();
+      });
+
+      a_input && a_input.addEventListener("dblclick", (e) => {
+        a_input.value = 0.5;
+        e.target.parentElement.getElementsByClassName("txt")[0].innerText = parseFloat(e.target.value).toFixed(3);
+        draw();
+      });
+    }
+    </script>
+
+  </head>
+  <body>
+    <h2>🌱 floating-point numbers and exp2(x)</h2>
+    <p>
+      let's talk about floating-point numbers. here's a view into the mind of
+      your computer, specifically the part that handles 32-bit floating-point
+      numbers:
+    </p>
+
+    <p>
+      <div id="floatview">
+        <table class="signbit">
+          <tr class="bitnum"></tr>
+          <tr class="bitval"></tr>
+        </table><br/>
+        <table class="expbits">
+          <tr class="bitnum"></tr>
+          <tr class="bitval"></tr>
+        </table><br/>
+        <table class="valbits">
+          <tr class="bitnum"></tr>
+          <tr class="bitval"></tr>
+        </table><br/>
+        <label><input id="aux_signbit" type="checkbox"></input> <span style="color:yellow">negative</span></label><br/>
+        <label><input id="aux_exponent" type="number" min="0" max="255" value="0"></input> <span style="color:magenta">exponent (<span id="expmore"></span>)</span></label><br/>
+        <label><input id="aux_significand" type="number" min="0" max="8388607" value="0"></input> <span style="color:cyan">significand (<span id="valmore"></span>)</span></label><br/>
+        <br/>
+        <label><input id="aux_truth" type="number" value="1" step="0.000001"></input> float32 value</label><br/>
+      </div>
+      <script>
+        const F32_BIAS = (0x7f);
+        const F32_EXP_SHIFT = (23);
+        const F32_EXP_BITS = (8)
+        const F32_EXP_MASK = (((1<<F32_EXP_BITS)-1) << F32_EXP_SHIFT);
+
+        function bits_to_int(first, num) {
+          let acc = 0;
+          for (let i=0; i<num; ++i) {
+            if (document.getElementById("bit"+(first+i)).checked) acc += (1<<i);
+          }
+          return acc;
+        }
+
+        function u32_to_f32(u) {
+          const buf = new ArrayBuffer(4);
+          const f32 = new Float32Array(buf); // float32 view into buf
+          const u32 = new Uint32Array(buf); // uint32 view into buf
+          u32[0] = u;
+          return f32[0];
+        }
+
+        function f32_to_u32(f) {
+          const buf = new ArrayBuffer(4);
+          const f32 = new Float32Array(buf); // float32 view into buf
+          const u32 = new Uint32Array(buf); // uint32 view into buf
+          f32[0] = f;
+          return u32[0];
+        }
+
+        function set_truth_from_bits() {
+          aux_truth.value = u32_to_f32(bits_to_int(0, 32));
+        }
+
+        function update_aux_info() {
+          let exp = parseInt(aux_exponent.value, 10);
+          let val = parseInt(aux_significand.value, 10);
+          if (exp === 0) {
+            expmore.innerText = "subnormal";
+            valmore.innerText = val / (1<<23);
+          } else if (exp === 255) {
+            expmore.innerText = "non-finite";
+            if (val === 0) {
+              valmore.innerText = "infinity";
+            } else {
+              // TODO quiet/signalling?
+              valmore.innerText = "not-a-number";
+            }
+          } else {
+            expmore.innerText = "normal, e=" + (exp-F32_BIAS);
+            valmore.innerText = 1 + val / (1<<23);
+          }
+        }
+
+        function set_aux_from_bits() {
+          aux_significand.value = bits_to_int(0, F32_EXP_SHIFT);
+          aux_exponent.value = bits_to_int(F32_EXP_SHIFT, F32_EXP_BITS);
+          aux_signbit.checked = bits_to_int(F32_EXP_SHIFT+F32_EXP_BITS, 1) > 0;
+          update_aux_info();
+        }
+
+        function set_bits_from_aux() {
+          bit31.checked = aux_signbit.checked;
+          const significand = parseInt(aux_significand.value, 10);
+
+          for (let i=0; i<F32_EXP_SHIFT; ++i) {
+            document.getElementById("bit"+(i)).checked = ((significand & (1<<i)) !== 0);
+          }
+
+          const exponent = parseInt(document.getElementById("aux_exponent").value, 10);
+          for (let i=0; i<F32_EXP_BITS; ++i) {
+            document.getElementById("bit"+(F32_EXP_SHIFT+i)).checked = ((exponent & (1<<i)) !== 0);
+          }
+        }
+
+        function set_bits_from_truth() {
+          let u = f32_to_u32(aux_truth.value);
+          for (let i=0; i<32; ++i) document.getElementById("bit"+i).checked = !!(u & (1<<i));
+          set_aux_from_bits();
+        }
+
+        (() => {
+          for (let i=31; i>=0; --i) {
+            //let color_class;
+            //let bitnum = floatview.getElementsByClassName("bitnum")[0];
+            //let bitval = floatview.getElementsByClassName("bitval")[0];
+            let bitnum,bitval;
+            if (i === 31) {
+              //color_class = "signbit";
+              bitnum = floatview.getElementsByClassName("bitnum")[0];
+              bitval = floatview.getElementsByClassName("bitval")[0];
+            } else if (i >= (31-F32_EXP_BITS)) {
+              //color_class = "expbits";
+              bitnum = floatview.getElementsByClassName("bitnum")[1];
+              bitval = floatview.getElementsByClassName("bitval")[1];
+            } else {
+              //color_class = "valbits";
+              bitnum = floatview.getElementsByClassName("bitnum")[2];
+              bitval = floatview.getElementsByClassName("bitval")[2];
+            }
+
+            let td0 = document.createElement("td");
+            //td0.classList.add(color_class);
+            td0.innerText = i;
+            bitnum.appendChild(td0);
+
+            let td1 = document.createElement("td");
+            //td1.classList.add(color_class);
+            let inp = document.createElement("input");
+            inp.setAttribute("id", "bit"+i);
+            inp.setAttribute("type", "checkbox");
+            td1.appendChild(inp);
+            bitval.appendChild(td1);
+
+            ((inp) => {
+              td0.addEventListener("click", (e) => {
+                e.preventDefault();
+                inp.checked = !inp.checked;
+                set_aux_from_bits();
+                set_truth_from_bits();
+              });
+            })(inp);
+
+            inp.addEventListener("change", (e) => {
+              set_aux_from_bits();
+              set_truth_from_bits();
+            });
+
+          }
+
+          aux_signbit.addEventListener("change", (e) => {
+            set_bits_from_aux();
+            update_aux_info();
+            set_truth_from_bits();
+          });
+          aux_exponent.addEventListener("change", (e) => {
+            set_bits_from_aux();
+            update_aux_info();
+            set_truth_from_bits();
+          });
+          aux_significand.addEventListener("change", (e) => {
+            set_bits_from_aux();
+            update_aux_info();
+            set_truth_from_bits();
+          });
+          aux_truth.addEventListener("change", (e) => {
+            set_bits_from_truth();
+            set_aux_from_bits();
+          });
+
+        })();
+
+        set_bits_from_truth();
+        set_bits_from_aux();
+        update_aux_info();
+        set_truth_from_bits();
+
+      </script>
+    </p>
+
+    <p>
+      <em><small><small>
+      inspired by <a href="https://evanw.github.io/float-toy/">float toy</a>
+      </small></small></em>
+    </p>
+
+    <p>
+      so what's a "32-bit floating-point number"? well, there are 32 numbered
+      checkboxes: these are <em>the 32 bits of your float32 number</em>. a bit
+      is a "binary digit" that can be one or zero; a checkmark means one, and
+      the lack thereof means zero. these are the "ones and zeroes inside your
+      computer" you might have heard about.
+    </p>
+
+    <p>
+      the magenta row has 8 bits and the cyan row has 23 bits. these contain
+      <em>unsigned integers</em>. the way you "read" these integers is similar
+      to how you read normal (decimal) numbers, except we're in binary/base-2
+      ("we have 2 digits") instead of decimal/base-10 ("we have 10 digits").
+      and something you already know, maybe without thinking about it, is how
+      to count: to find the next number (x+1) you add one to the right-most
+      digit; if it's already the highest possible digit (9 in decimal, 1 in
+      binary), it "overflows", and you have to also add 1 to its "neighbor to
+      the left", which itself can overflow, and so on. examples in decimal are
+      9+1=10 and 99+1=100. in binary we have 1+1=10 and 11+1=100 (binary 10 is
+      decimal 2, and binary 100 is decimal 4). try the increment/decrement
+      arrows in the exponent/significand number inputs above and observe how
+      the bits "react".
+    </p>
+
+    <p>
+      informally speaking, a floating-point number is just "a bunch of digits"
+      plus "a position for the point" plus "whether it's positive or negative".
+      in decimal you could consider a bunch of digits like:
+      <pre>1234</pre>
+      and then decide to place the point somewhere:
+      <pre>12.34</pre>
+      and maybe even "flip the sign bit":
+      <pre>-12.34</pre>
+      floating-point numbers even lets you place the point "outside" of the
+      digits:
+      <pre>
+ .   1234 or:
+0.0001234</pre>
+      and
+      <pre>
+1234   .  or:
+1234000.0</pre>
+      so we generally have something like:
+      <pre>
+real_value = normalized_value * (base**point_position)
+or for base-10 and base-2 respectively:
+real_value = normalized_value * (10**point_position)
+real_value = normalized_value * (2**point_position)
+</pre>
+      which is also somewhat related to "scientific notation" where you have a
+      value and a multiplier (the base to the power of an exponent):
+      <pre>
+1234 = 1.234 * (10**3)
+1234000 = 1.234 * (10**6)
+0.0001234 = 1.234 * (10**-4)</pre>
+    </p>
+
+    <p>
+      <blockquote><em><small>
+      and let's briefly interrupt the flow and cover the different notations
+      for exponentiation:
+      <ul>
+        <li>2<sup>x</sup>, <tt>2^x</tt>, <tt>2**x</tt> and <tt>exp2(x)</tt> are the same
+        <li>x<sup>y</sup>, <tt>x^y</tt>, <tt>x**y</tt> and <tt>pow(x,y)</tt> are the same
+      </ul>
+      sorry for the mess! x<sup>y</sup> is "math"; <tt>x^y</tt> is used
+      sometimes but we avoid it here since it's the XOR operator in C/JS;
+      <tt>x**y</tt> is a syntax found in JS and Python. <tt>exp2(x)</tt> is the
+      typical math library function name for 2<sup>x</sup>, eg. C has
+      <tt>exp2()/exp2f()</tt>, Python has <tt>math.exp2()</tt>. JS doesn't have
+      <tt>Math.exp2()</tt>, but you can do <tt>2**x</tt>,
+      <tt>Math.pow(2,x)</tt> and <tt>Math.exp(x*Math.log(2))</tt> instead.
+      </small></em></blockquote>
+    </p>
+
+    <p>
+      "normalized" means "designed to fit within a range". for instance, in
+      scientific notation, you typically use values between 1.0 and
+      9.999&hellip; as the "normalized" value, and let the exponent do the
+      rest.
+    </p>
+
+    <p>
+      but enough of this "general theory". lets stick to binary and explore how
+      float32s <em>really</em> work (we're gonna get low-level):
+
+      <ul>
+
+        <li>a floating-point number can be "classified" by looking at its
+        exponent value:
+        <ul>
+          <li>when exp is between 1 and 254, the value is "normal"; most
+          "everyday floating-point numbers" that aren't zero (like 1.0) fit
+          into this class
+          <li>when exp=0, the value is "subnormal"; this is used for both very
+          small numbers, and zero.
+          <li>when exp=255, the value is "non-finite" which is used for ±inf
+          and nan
+        </ul>
+
+        <li>when the number is "normal" (exp in [1;254]), the actual floating-point value is:
+        <pre>sign * (1 + significand*(2**-23)) * (2 ** (exp-127))</pre>
+        notice how the significand represents a normalized number between 1 and
+        2. another way i've heard this explained: imagine there's a 24th bit in
+        the significand that's always 1.
+
+        <li>when the number is "subnormal" (exp=0), the actual floating-point value is:
+        <pre>sign * (significand*(2**-23)) * (2 ** -126)</pre>
+        notice how the significand represents a number between 0 and 1.
+
+        <li>when the number is "non-finite", the meaning of the significand
+        changes (again): significand=0 means ±infinite (based on the sign bit),
+        while any other significand means not-a-number (NaN).
+
+      </ul>
+
+      you can use the toy above to try out all these "rules". the
+      <span style="color:magenta">magenta</span> text also reveals the
+      classification.
+
+    </p>
+
+    <p>
+      now we know (nearly) everything about how float32 numbers work! but
+      there's a practical problem: how do we even access the 32 bits? these are
+      usually "hidden" from you because the "floating-point semantics" are the
+      entire reason for using them in the first place; to be able to write
+      1.1*42.42 and let your hardware deal with the "underlying magic". so how
+      do we "crack this safe open"?
+    </p>
+
+    <p>
+      it's done differently in JS and C. JS first:
+<pre>
+function u32_to_f32(u) {
+  const buf = new ArrayBuffer(4); // get 4 bytes (32 bits) of memory
+  const f32 = new Float32Array(buf); // float32 view into buf
+  const u32 = new Uint32Array(buf); // uint32 view into buf
+  u32[0] = u; // set the memory as u32...
+  return f32[0]; // ...and read back as f32
+}
+
+function f32_to_u32(f) {
+  const buf = new ArrayBuffer(4); // get 4 bytes (32 bits) of memory
+  const f32 = new Float32Array(buf); // float32 view into buf
+  const u32 = new Uint32Array(buf); // uint32 view into buf
+  f32[0] = f; // set the memory as f32...
+  return u32[0]; // ...and read back as u32
+}
+</pre>
+    </p>
+
+    <p>
+      in C we do this:
+<pre>
+static inline float u32_to_f32(unsigned u) {
+  union { float f; unsigned u; } xx;
+  // the "union" defines xx as a value that can be
+  // "float" (f32) and "unsigned" (u32) at the same time
+  xx.u = u; // set memory as u32...
+  return xx.f; // ...and read back as f32
+}
+static inline unsigned f32_to_u32(float f) {
+  union { float f; unsigned u; } xx;
+  xx.f = f; // set memory as f32...
+  return xx.u; // ...and read back as u32
+}</pre>
+    </p>
+
+    <p>
+      but let's get back to plotting. something that hadn't occurred to me
+      before i started diving into all this is that floating-point numbers are
+      actually "neatly ordered", at least if they're positive, so that if a
+      value <tt>x</tt> is larger than a value <tt>y</tt>, then
+      <tt>f32_to_u32(x)</tt> is also larger than <tt>f32_to_u32(y)</tt>. let us
+      explore what that means by simply interpolating between two large
+      integers and converting it back with u32_to_f32().
+      <canvas id="bithack0_plot" width="500" height="280"></canvas>
+      <textarea id="bithack0_code" type="text" rows="16" spellcheck="false">
+      </textarea>
+    </p>
+    <script>
+    bithack0_code.value = `
+function good(x) { // cyan
+  return 2**x; // exp2(x)
+}
+function u32_to_f32(u) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf);
+  const u32 = new Uint32Array(buf);
+  u32[0] = u;
+  return f32[0];
+}
+function bad(x) { // yellow
+  const a = 127 << 23;
+  const b = 128 << 23;
+  let xu = a + (b-a)*x; // lerp between a and b
+  return u32_to_f32(xu);
+}
+    `.trim();
+    setup_plot("bithack0");
+    </script>
+
+    <p>
+      i cheated a bit since we already have a framework for comparing
+      functions, and chose a lerp (linear interpolation) that matches
+      <tt>2**x</tt> (aka exp2(x)). in an earlier post we wanted to replace
+      <tt>exp2(x)</tt> and now it looks like we're nearly there, almost without
+      doing any work?! max error seems to be about .09 around <tt>x=0</tt>. not
+      bad for doing "no work".
+    </p>
+
+    <p>
+      let's see what the exponent looks like alone, without any significand
+      bits. we reuse the previous code, but add a line that "masks out" the 23
+      least significant bits, which is another way of saying, "setting them to
+      zero". bit-hackery was promised:
+      <canvas id="bithack1_plot" width="500" height="280"></canvas>
+      <textarea id="bithack1_code" type="text" rows="17" spellcheck="false">
+      </textarea>
+    </p>
+    <script>
+    bithack1_code.value = `
+function good(x) { // cyan
+  return 2**x; // exp2(x)
+}
+function u32_to_f32(u) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf);
+  const u32 = new Uint32Array(buf);
+  u32[0] = u;
+  return f32[0];
+}
+function bad(x) { // yellow
+  const a = 127 << 23;
+  const b = 128 << 23;
+  let xu = a + (b-a)*x; // lerp between a and b
+  xu = xu & ~((1<<23)-1); // mask out lower 23 bits
+  return u32_to_f32(xu);
+}
+    `.trim();
+    setup_plot("bithack1");
+    </script>
+
+  <p>
+    we won't go too deep into bit-hackery, but:
+    <ul>
+      <li>some of the operators that are useful are:
+        <ul>
+          <li><tt>&amp;</tt> (AND) - used to clear or test individual bits
+          <li><tt>|</tt> (OR) - used to set individual bits
+          <li><tt>~</tt> (NOT) - flips all bits; 0s become 1s, 1s become 0s
+          <li><tt>^</tt> (XOR) - flips individual bits
+          <li><tt>&lt;&lt;</tt> (left-shift) and <tt>&gt;&gt;</tt>
+          (right-shift) - moves all bits a number of steps left or right - also
+          corresponds to multiplying by 2, or (integer-)dividing by 2,
+          respectively
+        </ul>
+      <li>powers-of-two (2**i), like 1, 64 and 128 have only one bit set
+      <li>left-shifts can calculate powers-of-two: <tt>(1&lt;&lt;0)=1</tt>,
+      <tt>(1&lt;&lt;6)=64</tt>, <tt>(1&lt;&lt;7)=128</tt>; you shift a single
+      bit (the "1") a number of places to the left.
+      <li>a power-of-two minus one have "all bits set" below the power-of-two,
+      so to speak. <tt>((1<<6)-1)</tt> has all of the lowest 6 bits set.
+    </ul>
+    let's use it to "deconstruct" the masking:
+      <pre>x = x & ~((1<<23)-1);</pre>
+    first we have a power-of-two:
+      <pre>1<<23</pre>
+    that minus one gives us a value with all of the lowest 23 bits set:
+      <pre>(1<<23)-1</pre>
+    the <tt>~</tt>/NOT operator inverts these bits, making every bit except the
+    lower 23 bits set:
+      <pre>~((1<<23)-1)</pre>
+    the <tt>&amp;</tt>/AND operator does a bit-by-bit comparison; the per-bit output is
+    only 1 if both inputs are 1. ie. it clears the lower 23 bits:
+      <pre>x & ~((1<<23)-1)</pre>
+  </p>
+
+  <p>
+    now why is all this useful? sure, we almost solved the <tt>exp2(x)</tt> problem, but
+    how do we improve it? well, look at the "almost accidental" <tt>exp2(x)</tt>
+    approximations above; all we need is to somehow make up for the difference
+    between <tt>good(x)</tt> and <tt>bad(x)</tt>.
+  </p>
+
+  <p>
+    lets look at the lerp-hack version (without masking) of <tt>exp2(x)</tt>.
+    trying to convert the bit-hackery back into math, we get:
+      <pre>(2**Math.floor(x)) * (1 + (x-Math.floor(x)))</pre>
+    go ahead and try replacing good(x) with this expression to see that they
+    match pretty well (max error of about 1e-7 around x=0). this also lets us
+    define what the error is:
+      <pre>err = (2**x) - (2**Math.floor(x)) * (1 + (x-Math.floor(x)))</pre>
+  </p>
+
+  <p>
+    why are we back in math land? well, recall we need to be able to
+    <em>differentiate</em> a function in order to construct a <em>taylor
+    series</em> for it. bit hackery can't be differentiated, but the above
+    definition can. well, almost. it uses floor(x) which has discontinuities,
+    and taylor series don't like them.
+  </p>
+
+  <p>
+    but we can fix that. have a look at how the exp2 function works.
+      <pre>exp2(x+1) = exp2(x)*2</pre>
+    or generally:
+      <pre>exp2(x+k) = exp2(x)*exp2(k)</pre>
+    in english it says: "going k steps to the right on the curve gives a result
+    <tt>exp2(k)</tt> times larger than before regardless of where you are on
+    the curve". the "regardless" part is important because it means that
+    <tt>exp2(x)</tt> is "fractal"; it "repeats itself everywhere".
+  </p>
+
+  <p>
+    what it <em>really</em> means is that you only need to approximate
+    <tt>exp2(x)</tt> <em>between</em> the discontinuities to reconstruct the
+    rest. try this in the stairstep version above; change the return statement
+    to:
+      <pre>return u32_to_f32(xu) * (2**(x-Math.floor(x)))</pre>
+    now the error completely disappears! of course we can't have
+    self-referential solutions like this, but it tells us what the solution
+    looks like: we "just" have to approximate <tt>exp2(x)</tt> between 0 and 1
+    (recall that taylor series are most accurate around the "anchor point" of
+    your choice)
+  </p>
+
+  <p>
+    we can also fix the smoother version by replacing the return statement with
+    two lines:
+      <pre>
+const xf = x-Math.floor(x);
+return u32_to_f32(xu) * ((2**xf)/(1+xf))</pre>
+  </p>
+
+  <p>
+    now depending on which on which version we want to fix, we only need to be
+    able to differentiate one of these functions for x between 0 and 1:
+      <pre>f(x) = 2**x</pre>
+    or
+      <pre>f(x) = (2**x) / (1+x)</pre>
+  </p>
+
+  <p>
+    the stairstep one certaintly looks easier. being a little rusty in calculus
+    i asked maxima, which is a "computer algebra system" that knows how to
+    differentiate. the simple <tt>2**x</tt> one gives us:
+<pre>
+(%i14) diff(2^x,x,0);
+                                       x
+(%o14)                                2
+(%i15) diff(2^x,x,1);
+                                    x
+(%o15)                             2  log(2)
+(%i16) diff(2^x,x,2);
+                                   x    2
+(%o16)                            2  log (2)
+(%i17) diff(2^x,x,3);
+                                   x    3
+(%o17)                            2  log (2)
+</pre>
+    the maxima syntax is <tt>diff(expr,var,order)</tt>. <tt>expr</tt> is the
+    expression to differentiate (note that maxima uses <tt>2^x</tt> syntax, not
+    <tt>2**x</tt>). <tt>var</tt> is the input variable (<tt>x</tt> for
+    <tt>f(x)</tt>). <tt>order</tt> is the order of the derivative, 0 being 0th
+    order (itself), 1 being 1st derivative, etc. the more complicated
+    <tt>(2**x) / (1+x)</tt> gives us:
+<pre>
+(%i18) diff((2^x)/(1+x),x,0);
+                                       x
+                                      2
+(%o18)                               ─────
+                                     x + 1
+(%i19) diff((2^x)/(1+x),x,1);
+                              x              x
+                             2  log(2)      2
+(%o19)                       ───────── - ────────
+                               x + 1            2
+                                         (x + 1)
+(%i20) diff((2^x)/(1+x),x,2);
+                      x    2       x + 1            x + 1
+                     2  log (2)   2      log(2)    2
+(%o20)               ────────── - ───────────── + ────────
+                       x + 1               2             3
+                                    (x + 1)       (x + 1)
+(%i21) diff((2^x)/(1+x),x,3);
+        x    3       x + 1    2       x    2       x + 2           x + 1
+       2  log (2)   2      log (2)   2  log (2)   2      log(2)   2      log(2)
+(%o21) ────────── - ────────────── - ────────── + ───────────── + ─────────────
+         x + 1                2              2             3               3
+                       (x + 1)        (x + 1)       (x + 1)         (x + 1)
+                                                                          x + 1
+                                                                       3 2
+                                                                     - ────────
+                                                                              4
+                                                                       (x + 1)
+</pre>
+
+    uh-oh, something's exploding. it's not necessarily a "real problem" because
+    this math would still only be used to pre-calculate polynomial
+    coefficients (constants at run-time). but you need to somehow translate the
+    above "differentiation pattern" into JS code in order to make a tool that
+    supports arbitrary <tt>a</tt> and <tt>order</tt> values (like the taylor
+    series toy from last time). so the simple one it is! here's everything put
+    together:
+  </p>
+
+  <p>
+    <canvas id="taylor0_plot" width="500" height="280"></canvas>
+    <label><input type="range" id="taylor0_order" min="0" max="20" value="3"/> order=<span class="txt">3</span></label><br/>
+    <label title="double-click to reset a=0.5"><input type="range" id="taylor0_a" min="0" max="1" step="0.0001" value="0.5"/> <span style="color:green">a</span>=<span class="txt">0.500</span></label><br/>
+    <textarea id="taylor0_code" type="text" rows="30" spellcheck="false">
+    </textarea>
+    <pre id="taylor0_debug"></pre>
+    <script>
+    taylor0_code.value = `
+function good(x) { // cyan
+  return 2**x;
+}
+function u32_to_f32(u) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf);
+  const u32 = new Uint32Array(buf);
+  u32[0] = u;
+  return f32[0];
+}
+function taylor(x) {
+  // calc exp2(x) taylor series in [0;1]
+  const factorial = (x) => x<=1 ? 1 : x*factorial(x-1);
+  let sum = 0;
+  for (let i=0; i<=INPUT_ORDER; ++i) {
+    let fa = (2**INPUT_A) * (Math.log(2) ** i);
+    sum += (i===0) ? fa : (fa/factorial(i)) * ((x-INPUT_A)**i);
+  }
+  return sum;
+}
+function bad(x) { // yellow
+  // calc "stairstep":
+  const a = 127 << 23;
+  const b = 128 << 23;
+  let xu = a + (b-a)*x; // lerp between a and b
+  xu = xu & ~((1<<23)-1); // mask out lower 23 bits
+  const y0 = u32_to_f32(xu);
+  return y0*taylor(x-Math.floor(x));
+}
+`.trim();
+    setup_plot("taylor0");
+    </script>
+  </p>
+
+  <p>
+    we get nasty discontinuities at x=0,1,2... but just like last time we can
+    try "auto-calibrating" it. although, since a=0.5 seems to work better this
+    time the method is slightly different: insert this at the bottom:
+      <pre>
+print(1/taylor(0))
+print(2/taylor(1))</pre>
+    and grab the results. for order=3, a=0.5, i get:
+      <pre>
+1.000795077867169
+1.0004565267924628</pre>
+    and then fix the output by lerping:
+      <pre>
+const c0 = 1.000795077867169;
+const c1 = 1.0004565267924628;
+return sum * (c0 + (c1-c0)*x);</pre>
+    max error isn't better, but the discontinuities are gone.
+  </p>
+
+  <p>
+    combining everything, order=4, auto-calibrated:
+    <canvas id="taylor1_plot" width="500" height="280"></canvas>
+    <textarea id="taylor1_code" type="text" rows="25" spellcheck="false">
+    </textarea>
+  </p>
+  <script>
+taylor1_code.value = `
+function good(x) { // cyan
+  return 2**x;
+}
+function u32_to_f32(u) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf);
+  const u32 = new Uint32Array(buf);
+  u32[0] = u;
+  return f32[0];
+}
+function bad(x) { // magenta
+  const xf = Math.floor(x);
+  const ystep = u32_to_f32((127+(xf|0)) << 23);
+  const x1 = x-xf;
+  const xt = x1-0.5;
+  const c0=1.4142135623730951;
+  const c1=0.9802581434685472;
+  const c2=0.3397315841830749;
+  const c3=0.07849466324122069;
+  const c4=0.013602088628663625;
+  const ytaylor = c0 + xt*(c1 + xt*(c2 + xt*(c3 + xt*(c4))));
+  const m0=0.9999443187818418;
+  const m1=1.0000312541780023;
+  return ystep * ytaylor * (m0+(m1-m0)*x1);
+}
+`.trim();
+  setup_plot("taylor1");
+  </script>
+
+  <p>
+    the C version of this code is about 18% faster than the math.h
+    <tt>exp2f(x)</tt>. not bad!
+  </p>
+
+  <p>
+    also don't worry that "max error" seems to go up as x goes up. this is more
+    a problem with our tool. with the previous <tt>sin(x)</tt> stuff it made sense to
+    calculate error as <tt>abs(good(x)-bad(x))</tt>, because <tt>sin(x)</tt> always stays around
+    y±1, but <tt>exp2(x)</tt> just keeps rising. <tt>good(x)/bad(x)</tt> would
+    probably be a better starting point. you can also try find x=20 and see
+    that max error is around 40, which sounds like a lot, but when you see that
+    the y-values are around 1 million, then an error of 40 isn't a lot.
+  </p>
+
+  <details>
+    <summary id="loc">show page source</summary>
+    <pre id="pre"></pre>
+  </details>
+
+  <script>
+  // render source code
+  const html = document.querySelector("html").outerHTML;
+  const loc = html.split("\n").length;
+  document.querySelector("#pre").textContent = html;
+  document.querySelector("#loc").textContent = `show source (${loc} loc)`;
+  </script>
+
+  </body>
+</html>

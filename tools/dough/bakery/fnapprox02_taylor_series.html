@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🌱 Taylor series</title>
+    <style>
+      body {
+        background-color: #222;
+        max-width: 500px;
+        margin: auto;
+        font-family: serif;
+        font-size: 1.2em;
+        color: #edd;
+        text-align: left;
+        padding: 20px 8px;
+      }
+      @font-face {
+        font-family: "FontWithASyntaxHighlighter";
+        src: url("/fonts/FontWithASyntaxHighlighter-Regular.woff2")
+          format("woff2");
+      }
+      a {
+        color: cyan;
+        font-size: 1em;
+        cursor: pointer;
+      }
+      textarea {
+        font-family: "FontWithASyntaxHighlighter", monospace;
+      }
+      textarea,
+      pre {
+        padding: 8px;
+        font-size: 12px;
+        border: 0;
+        overflow: auto;
+        outline: none;
+        background-color: #44444490;
+        color: white;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      input[type="range"] {
+        width: 390px;
+      }
+    </style>
+    <script>
+    function setup_taylor(name) {
+      const textarea = document.getElementById(name + "_code");
+      const canvas = document.getElementById(name + "_plot");
+      const debug = document.getElementById(name + "_debug");
+      const order_input = document.getElementById(name + "_order");
+      const a_input = document.getElementById(name + "_a");
+      const triangle_input = document.getElementById(name + "_triangle");
+
+      let ctx = canvas ? canvas.getContext('2d') : null;
+      let src = textarea.value;
+
+      let scale = 50;
+      let pan_x = 0;
+      let pan_y = 0;
+      let width,height;
+
+      function map_screen_to_local(sx,sy) {
+        const mid_x = width * .5;
+        const mid_y = height * .5;
+        const lx = (sx - mid_x - pan_x) / scale;
+        const ly = (sy - mid_y - pan_y) / scale;
+        return [lx,ly];
+      }
+
+      function map_local_to_screen(lx,ly) {
+        const mid_x = width * .5;
+        const mid_y = height * .5;
+        const sx = (mid_x + pan_x) + lx * scale;
+        const sy = (mid_y + pan_y) + ly * scale;
+        return [sx,sy];
+      }
+
+      function draw(cursor_x) {
+        width = canvas && canvas.width;
+        height = canvas && canvas.height;
+        if (ctx) ctx.clearRect(0, 0, width, height);
+        const xstep = 1.11;
+
+        const INPUT_ORDER    = order_input    ? parseInt(order_input.value, 10) : null;
+        const INPUT_A        = a_input        ? parseFloat(a_input.value)       : null;
+        const INPUT_TRIANGLE = triangle_input ? triangle_input.checked          : null;
+
+        let debug_txt = "";
+
+        function print(s) { // for use inside eval()
+          debug_txt += (s+"\n");
+        }
+
+        try {
+          eval(src);
+        } catch (e) {
+          let msg = e.message;
+          if (e.lineNumber !== undefined) msg += " (on line " + e.lineNumber + ")"; // non-standard
+          if (ctx) {
+            ctx.fillStyle = "rgba(255,0,0,0.3)";
+            ctx.fillRect(0,0,width,height);
+            ctx.fillStyle = "rgba(255,255,0,1)";
+            ctx.fillText(msg, 25, 25);
+            return;
+          } else {
+            debug_txt += ("ERROR: " + msg);
+          }
+        }
+
+        debug.innerText = debug_txt;
+        debug.style.display = (debug_txt==="") ? "none" : "";
+
+        if (ctx) {
+          ctx.lineWidth = 5;
+          ctx.strokeStyle = "rgba(255,0,255,.04)";
+          const [sx0,sy0] = map_local_to_screen(0,0);
+          ctx.beginPath();
+          ctx.moveTo(sx0,0);
+          ctx.lineTo(sx0,height);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0,sy0);
+          ctx.lineTo(width,sy0);
+          ctx.stroke();
+
+          ctx.lineWidth = 1;
+          ctx.fillStyle = "rgba(255,0,0,.2)";
+          ctx.beginPath();
+          let min_e,max_e;
+          const d2e = (d) => (d!==0) ? Math.log10(Math.abs(d)) : -1e6;
+          ctx.moveTo(0,height);
+          for (let cx=0; cx<width; cx+=xstep/4) {
+            const x = map_screen_to_local(cx,0)[0];
+            const e = d2e(good(x) - bad(x));
+            const cy = height - (e + 15) * 15;
+            ctx.lineTo(cx, cy);
+          }
+          ctx.lineTo(width,height);
+          ctx.fill();
+
+          if (INPUT_A) {
+            const sx = map_local_to_screen(INPUT_A,0)[0];
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "green";
+            ctx.beginPath();
+            ctx.moveTo(sx,height);
+            ctx.lineTo(sx,0);
+            ctx.stroke();
+          }
+
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = "cyan";
+          ctx.beginPath();
+          for (let cx=0; cx<width; cx+=xstep) {
+            const x = map_screen_to_local(cx,0)[0];
+            const y = good(x);
+            const cy = map_local_to_screen(0,-y)[1];
+            ctx[cx?"lineTo":"moveTo"](cx, cy);
+          }
+          ctx.stroke();
+
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = "yellow";
+          ctx.beginPath();
+          for (let cx=0; cx<width; cx+=xstep) {
+            const x = map_screen_to_local(cx,0)[0];
+            const y = bad(x);
+            const cy = map_local_to_screen(0,-y)[1];
+            ctx[cx?"lineTo":"moveTo"](cx, cy);
+          }
+          ctx.stroke();
+
+          if (cursor_x !== undefined) {
+            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = "white";
+            ctx.beginPath();
+            ctx.moveTo(cursor_x, 0);
+            ctx.lineTo(cursor_x, height);
+            ctx.stroke();
+            const x = map_screen_to_local(cursor_x,0)[0];
+            const ygud = good(x);
+            const ybad = bad(x);
+            const y0 = Math.min(ygud, ybad);
+            const y1 = Math.max(ygud, ybad);
+            const sy0 = map_local_to_screen(0,-y0)[1];
+            const sy1 = map_local_to_screen(0,-y1)[1];
+            ctx.fillStyle = "rgba(255,0,0,0.6)";
+            ctx.fillRect(cursor_x-5,sy0,10,sy1-sy0);
+            ctx.fillStyle = "white";
+            let str = " error=" + (ygud-ybad).toPrecision(6);
+            ctx.fillText(str, cursor_x, height - 3);
+            str = ` x=${x.toFixed(3)} y[good]=${ygud.toFixed(3)} y[bad]=${ybad.toFixed(3)}`;
+            ctx.fillText(str, cursor_x, 20);
+          }
+        }
+      }
+      draw();
+
+      textarea.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.altKey) && e.key === "Enter") {
+          src = textarea.value;
+          draw();
+        }
+      });
+
+      if (canvas) {
+        function zoom_at(x,y,dzoom) {
+          const [plx,ply] = map_screen_to_local(x, y);
+          scale *= 2**(dzoom * -3e-4);
+          const [lx,ly] = map_screen_to_local(x, y);
+          pan_x += (lx-plx)*scale;
+          pan_y += (ly-ply)*scale;
+        }
+        canvas.addEventListener("wheel", (e) => {
+          e.preventDefault();
+          zoom_at(e.offsetX, e.offsetY, e.deltaY);
+          draw();
+        });
+
+        let prev_touch_d=null, prev_touch_mx=null, prev_touch_my=null;
+        function handle_touch(e) {
+          e.preventDefault();
+          const ts = e.targetTouches;
+          const r = e.target.getBoundingClientRect();
+          if (ts.length === 1) {
+            prev_touch_d = prev_touch_mx = prev_touch_my = null;
+            draw(ts[0].pageX - r.left);
+          } else if (ts.length === 2) {
+            const [x0,y0] = [ts[0].clientX - r.x, ts[0].clientY - r.y];
+            const [x1,y1] = [ts[1].clientX - r.x, ts[1].clientY - r.y];
+            const [mx,my] = [(x0+x1)*.5, (y0+y1)*.5];
+            const d = Math.sqrt((x1-x0)**2 + (y1-y0)**2);
+            if (prev_touch_d !== null) {
+              zoom_at(mx, my, -(d-prev_touch_d) * 30);
+            }
+            if (prev_touch_mx !== null) {
+              pan_x += mx - prev_touch_mx;
+              pan_y += my - prev_touch_my;
+            }
+            [prev_touch_d,prev_touch_mx,prev_touch_my] = [d,mx,my];
+            draw();
+          } else {
+            prev_touch_d = prev_touch_mx = prev_touch_my = null;
+            draw();
+          }
+        }
+        canvas.addEventListener("touchstart", e=>handle_touch(e));
+        canvas.addEventListener("touchmove", e=>handle_touch(e));
+        canvas.addEventListener("touchend", e=>handle_touch(e));
+
+        let is_panning = false;
+        let prev_pan_mx, prev_pan_my;
+        canvas.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          is_panning = true;
+          prev_pan_mx = e.offsetX;
+          prev_pan_my = e.offsetY;
+        });
+        canvas.addEventListener("mouseup", (e) => {
+          if (!is_panning) return;
+          e.preventDefault();
+          is_panning = false;
+          draw();
+        });
+        canvas.addEventListener("mousemove", (e) => {
+          e.preventDefault();
+          const mx = e.offsetX;
+          const my = e.offsetY;
+          if (is_panning) {
+            pan_x += mx - prev_pan_mx;
+            pan_y += my - prev_pan_my;
+            prev_pan_mx = mx;
+            prev_pan_my = my;
+            draw();
+          } else {
+            draw(mx);
+          }
+        });
+        canvas.addEventListener("mouseleave", (e) => {
+          draw();
+        });
+      }
+
+      order_input && order_input.addEventListener("input", (e) => {
+        e.target.parentElement.getElementsByClassName("txt")[0].innerText = e.target.value;
+        draw();
+      });
+
+      a_input && a_input.addEventListener("input", (e) => {
+        e.target.parentElement.getElementsByClassName("txt")[0].innerText = parseFloat(e.target.value).toFixed(3);
+        draw();
+      });
+
+      triangle_input && triangle_input.addEventListener("change", (e) => {
+        draw();
+      });
+
+      a_input && a_input.addEventListener("dblclick", (e) => {
+        a_input.value = 0;
+        e.target.parentElement.getElementsByClassName("txt")[0].innerText = parseFloat(e.target.value).toFixed(3);
+        draw();
+      });
+    }
+    </script>
+  </head>
+  <body>
+    <h2>🌱 Taylor series</h2>
+    <p>
+      we're back with more bad sines:
+      <canvas id="taylor0_plot" width="500" height="280"></canvas>
+      <label><input type="range" id="taylor0_order" min="0" max="20" value="5"/> order=<span class="txt">5</span></label><br/>
+      <label title="double-click to reset a=0"><input type="range" id="taylor0_a" min="-6" max="6" step="0.001" value="0"/> <span style="color:green">a</span>=<span class="txt">0.000</span></label><br/>
+      <label><input type="checkbox" id="taylor0_triangle"/> reshape x as triangle wave</label>
+      <textarea id="taylor0_code" type="text" rows="22" spellcheck="false">
+      </textarea>
+      <pre id="taylor0_debug"></pre>
+    </p>
+    <script>
+    taylor0_code.value = `
+function good(x) { // cyan
+  return Math.sin(x);
+}
+function bad(x) { // yellow
+  const factorial = (x) => x<=1 ? 1 : x*factorial(x-1);
+  if (INPUT_TRIANGLE) {
+    x = (4*Math.abs(x*(.5/Math.PI)-Math.floor(x*(.5/Math.PI)+3/4)+1/4)-1)*(Math.PI/2);
+  }
+  let sum=0;
+  for (let i=0; i<=INPUT_ORDER; ++i) {
+    let fa;
+    switch (i%4) {
+    case 0: fa =  Math.sin(INPUT_A); break;
+    case 1: fa =  Math.cos(INPUT_A); break;
+    case 2: fa = -Math.sin(INPUT_A); break;
+    case 3: fa = -Math.cos(INPUT_A); break;
+    }
+    sum += (i===0) ? fa : (fa/factorial(i)) * ((x-INPUT_A)**i);
+  }
+  return sum;
+}
+    `.trim();
+    setup_taylor("taylor0");
+    </script>
+
+    <p>
+      this time we've got controools! you're looking at a "taylor series"
+      approximating <tt>sin(x)</tt>. loosely speaking, the <tt>order</tt> is
+      how many steps to take in the approximation (or, the number of iterations
+      in the for-loop, minus 1), and <tt>a</tt> is the "anchor point", around
+      which the approximation is most accurate (notice how the error plot drops
+      around it). the checkbox enables the triangle-wave symmetry-hack from
+      last post.
+    </p>
+
+    <p>
+      before we continue you may have a complaint about the code:
+
+        <blockquote><em>isn't it weird that the approximation of sin(x) itself
+        contains sin(x)? arent't we going in
+        <span title="no pun detected">circles</span> here?</em></blockquote>
+
+      well, maybe, but no: <tt>order</tt> and <tt>a</tt> would normally be
+      <em>constants</em> at run-time. they've only been made dynamic so you can
+      play with them. if <tt>order</tt> and <tt>a</tt> are constant, then:
+      <ul>
+        <li><tt>sin(a)/cos(a)/factorial(i)</tt> become known at compile-time so
+        we can precalc them and hardcode them in the source
+        <li>the for-loop can be unrolled
+        <li>in fact, all the code "collapses" into "just another polynomial".
+        that's because that's what this "taylor series thing" is: turning
+        arbitrary functions into polynomials.
+        </ul>
+    </p>
+
+    <p>
+      if you don't know what a polynomial is:
+      <ul>
+        <li>it's a function of x like <tt>f(x) = c0 + c1*x + c2*(x**2) +
+        c3*(x**3) + &hellip;</tt>
+        <li><tt>c0,c1,c2,&hellip;</tt> are called coefficients. these are the
+        constants that all this "taylor series stuff" helps us calculate
+        <li>the "&hellip;" means you can decide how many "parts" you want in
+        the polynomial; each time you add a part, the "order of the polynomial"
+        goes up by 1. <tt>f(x)=c0</tt> is called a 0th order polynomial,
+        <tt>f(x)=c0 + c1*x</tt> is a 1st order, etc.
+        <li>loosely speaking, the more orders a polynomial has, the more
+        "approximating power" it has, while also being more expensive to
+        calculate.
+      </ul>
+    </p>
+
+    <p>
+      taylor series can also approximate other <span
+      title="foreshadowing...">(<em>but not all</em>)</span> non-siney functions, but
+      for today we'll stick with sines. here's the general taylor series
+      formula:
+      <pre><math display="block" title="TIL: MathML is a browser standard now!">
+        <mrow>
+
+          <mrow><mi>f</mi><mo>(</mo><mi>x</mi><mo>)</mo></mrow>
+
+          <mo>=</mo>
+
+          <mrow><mi>f</mi><mo>(</mo><mi>a</mi><mo>)</mo></mrow>
+
+          <mo>+</mo>
+
+          <mfrac>
+            <mrow>
+              <mi>f</mi><mo>'</mo><mo>(</mo><mi>a</mi><mo>)</mo>
+            </mrow>
+            <mrow>
+              <mn>1</mn><mo>!</mo>
+            </mrow>
+          </mfrac>
+          <mo></mo>
+          <msup>
+            <mrow>
+              <mo>(</mo>
+              <mi>x</mi>
+              <mo>-</mo>
+              <mi>a</mi>
+              <mo>)</mo>
+            </mrow>
+            <mn>1</mn>
+          </msup>
+
+          <mo>+</mo>
+
+          <mfrac>
+            <mrow>
+              <mi>f</mi><mo>'</mo><mo>'</mo><mo>(</mo><mi>a</mi><mo>)</mo>
+            </mrow>
+            <mrow>
+              <mn>2</mn><mo>!</mo>
+            </mrow>
+          </mfrac>
+          <mo></mo>
+          <msup>
+            <mrow>
+              <mo>(</mo>
+              <mi>x</mi>
+              <mo>-</mo>
+              <mi>a</mi>
+              <mo>)</mo>
+            </mrow>
+            <mn>2</mn>
+          </msup>
+
+          <mo>+</mo>
+
+          <mfrac>
+            <mrow>
+              <mi>f</mi><mo>'</mo><mo>'</mo><mo>'</mo><mo>(</mo><mi>a</mi><mo>)</mo>
+            </mrow>
+            <mrow>
+              <mn>3</mn><mo>!</mo>
+            </mrow>
+          </mfrac>
+          <mo></mo>
+          <msup>
+            <mrow>
+              <mo>(</mo>
+              <mi>x</mi>
+              <mo>-</mo>
+              <mi>a</mi>
+              <mo>)</mo>
+            </mrow>
+            <mn>3</mn>
+          </msup>
+
+          <mo>+</mo>
+
+          <mo>&hellip;</mo>
+
+      </math></pre>
+
+      <ul>
+        <li><tt>f(x)</tt> is the function we're trying to approximate
+        <li><tt>a</tt> is the "anchor point", chosen by us
+        <li><tt>f'(x)</tt> is the first derivative of <tt>f(x)</tt>, <tt>f''(x)</tt> is
+        the second, and so on. so <tt>f'(a)</tt> is the value of <tt>f'(x)</tt> for <tt>x=a</tt>.
+        <li><tt>N!</tt> is the factorial of integer <tt>N</tt>:
+          <ul>
+            <li><tt>1!</tt> = <tt>1</tt>
+            <li><tt>2!</tt> = <tt>2*1</tt> = <tt>2</tt>
+            <li><tt>3!</tt> = <tt>3*2*1</tt> = <tt>6</tt>
+            <li><tt>4!</tt> = <tt>4*3*2*1</tt> = <tt>24</tt>
+            <li><small>(and you know what lets just define it recursively)</small>
+            <li><tt>N!</tt> = <tt>N*(N-1)!</tt> for <tt>N&gt;1</tt> (use
+            <tt>1!=1</tt> to terminate recursion)
+          </ul>
+        <li>"<tt>...</tt>" means "continue the pattern if you like"; each time
+        you add a section the order goes up by 1 (the order matches the order
+        of the polynomial). a 0th order taylor series is just
+        <tt>f(x)=f(a)</tt> (you can even try it in the plot above
+        <small><small> &mdash; <a href="#" target="_blank">open in new tab to
+        avoid scrolling</a></small></small>
+        )
+      </ul>
+    </p>
+
+    <p>
+      if you're new to <em>derivatives</em> they might seem a bit scary
+      (sure scares me from time to time). the tool we're using is called
+      <em>differentiation</em>, and it's a tool in the
+      <em>calculus</em>-toolbox. when you "differentiate a function"
+      <tt>f(x)</tt>, you find its "derivative" <tt>f'(x)</tt>. now you have
+      stuff you can look up! but tl;dr: <tt>f'(x)</tt> is a function of x, just
+      like <tt>f(x)</tt>, except it returns the slope of <tt>f(x)</tt> (and
+      <tt>f''(x)</tt> returns the slope of <tt>f'(x)</tt> and so on); try
+      setting order=1 above;
+      <small><small>(<a href="#" target="_blank">open in new tab to avoid scrolling</a>)</small></small>
+      this gives you a 1st order polynomial, also known
+      as: "a line". notice how the line always tangents ("touches, but only
+      barely") <tt>f(x)</tt> at <tt>x=a</tt> (drag the <tt>a</tt>-slider around
+      to see it). that's because its slope is <tt>f'(a)</tt>.
+    </p>
+
+    <p>
+      ok sure but how do you <em>find</em> the derivative of a function then?
+      yeah well that's beyond the scope of this post, but i'll give you the
+      cheatsheet for <tt>sin(x)</tt>:
+      <ul>
+        <li><tt>f(x)=sin(x)</tt>
+        <li><tt>f'(x)=cos(x)</tt>
+        <li><tt>f''(x)=-sin(x)</tt>
+        <li><tt>f'''(x)=-cos(x)</tt>
+        <li><tt>f''''(x)=sin(x)</tt> (same as <tt>f(x)</tt>)
+        <li><tt>f'''''(x)=cos(x)</tt> (same as <tt>f'(x)</tt>)
+        <li><small>and so on</small>
+      </ul>
+      notice how the rules are circular (<tt>f''''(x)=f(x)</tt>). they are
+      handled by the <tt>switch/case</tt> in the code, and the <tt>i%4</tt> in
+      <tt>switch(i%4)</tt> makes it circular.
+    </p>
+
+    <p>
+      to get a more intuitive feel for differentiation, since we've said that
+      "<tt>f'(x)</tt> is the slope of <tt>f(x)</tt>", lets consider
+      <tt>sin(x)</tt> in various places:
+      <ul>
+
+        <li>around <tt>sin(0)</tt>: it's the steepest that <tt>sin(x)</tt> gets
+        (45°) so we expect the derivative to also be greatest there.
+        <tt>sin'(0)=cos(0)=1</tt>, and <tt>cos(x)</tt> goes between
+        <tt>[-1;1]</tt>. the math checks out. if we could only approximate
+        <tt>sin(x)</tt> with a line, we could apply this slope:
+        <tt>y=cos(0)*x</tt> or <tt>y=x</tt>. you can try this with order=1, a=0
+        in the plotter above, which gives you the <tt>y=x</tt> line.
+
+        <li>around <tt>sin(pi/2)</tt>: the curve is flat here, so we expect the
+        slope to be zero. <tt>cos(pi/2)=0</tt>. the math checks out. also,
+        since <tt>sin(x)</tt> starts to drop for <tt>x&gt;pi/2</tt> we expect
+        the derivative to drop below zero, and <tt>cos(x)</tt> crosses 0, into
+        the negative, for <tt>x&gt;pi/2</tt>. the math checks out.
+
+        <li>and so on. the math checks out.
+      </ul>
+    </p>
+
+    <p>
+      <a href="https://en.wikipedia.org/wiki/Derivative#Rules_of_computation">
+      you can find these and other differentiation cheatsheets on wikipedia</a>
+      and elsewhere. the syntax is different (of course) due to some
+      tabs-vs-spaces kind of nerd war in the late 17th century, but <tt>d/dx
+      sin(x) = cos(x)</tt> means the same as <tt>sin'(x) = cos(x)</tt>
+      <small><small><small><em>*ducks*</em></small></small></small>
+    </p>
+
+    <p>
+      <blockquote><em>
+      we can also briefly explore something called numerical differentiation,
+      which is a generic way to differentiate a function without actually
+      knowing any "differentiation rules".
+      <textarea id="taylor2_code" type="text" rows="16" spellcheck="false">
+      </textarea>
+      <pre id="taylor2_debug"></pre>
+      to derive <tt>sin(x)</tt> we find the slope of the line between
+      <tt>sin(x-delta)</tt> and <tt>sin(x+delta)</tt>, for some small delta.
+      and in the code above we do it recursively to find higher order
+      derivatives. one nasty thing here is that if you lower the delta, you get
+      better results early on, but it blows up faster.
+      </em></blockquote>
+    </p>
+    <script>
+    taylor2_code.value = `
+const DELTA = 0.01;
+const X=1;
+function derive_numeric(fn, delta) {
+  return function(x) {
+    return (fn(x+delta)-fn(x-delta))/(2*delta);
+  }
+}
+let fnn=Math.sin;
+for (let i=0; i<10; ++i) {
+  const fna = [Math.sin, Math.cos, x=>-Math.sin(x), x=>-Math.cos(x)][i%4];
+  print("deriv[order="+i+"]: real="+fna(X).toFixed(5)+", numeric="+fnn(X).toFixed(5));
+  fnn = derive_numeric(fnn, DELTA);
+}
+    `.trim();
+    setup_taylor("taylor2");
+    </script>
+
+    <p>
+      if you've played around with the controls you may have noticed that
+      sometimes adjacent orders look the same. for instance, if a=0, then
+      the plots for order=5 and order=6 look the same. this is because some of the
+      derivatives are zero (which also makes the polynomial coefficient zero)
+      when a=0:
+      <ul>
+        <li><tt>f(0)=sin(0)=0</tt>
+        <li><tt>f'(0)=cos(0)=1</tt>
+        <li><tt>f''(0)=-sin(0)=0</tt>
+        <li><tt>f'''(0)=-cos(0)=-1</tt>
+        <li><small>and so on</small>
+      </ul>
+      this makes a=0 a good choice because you kinda get half of the
+      calculations for free (<tt>0*x</tt> is a calculation you don't have to
+      make)
+    </p>
+
+    <p>
+      here's a hack to try in the editor above
+      <small><small>(<a href="#" target="_blank">open in new tab to avoid scrolling</a>)</small></small>
+      <ul>
+        <li>set order=7
+        <li>set a=0
+        <li>set "reshape" checkmark
+        <li>verify that max error is around 0.00015
+        <li>in the bottom of bad(), change <pre>return sum;</pre> to
+        <pre>return sum*1.00009;</pre>
+      </ul>
+      now the max error is around 0.000073 (~half) and is more evenly
+      distributed. i handpicked/eyeballed this multiplier to lower max error.
+    </p>
+
+    <p>
+      if you need sin(pi/2) to be 1 as exactly as possible, you can also try
+      "auto-calibrating" it:
+      <ul>
+        <li>in the bottom of the code, outside of the bad() function, insert:
+        <pre>print(1/bad(Math.PI/2))</pre>
+        <li>press ctrl+enter and copy the number from the debug output below
+        your code (mine says <tt>1.000156923221535</tt>)
+        <li>use that instead in the bad() return statement:
+        <pre>return sum*1.000156923221535;</pre>
+        <li>now max error is about 0.00013, not much better, but we have the
+        nice property that sin(0)=0, sin(pi/2)=1, etc
+      </ul>
+    </p>
+
+    <p>
+      to get back to plotting, lets find a fine sine. to get the polynomial
+      coefficients we can insert this in the bottom of the for-loop in bad():
+      <pre>print([i,fa/factorial(i)]);</pre>
+      and this in the bottom of the code, outside of the function to trigger
+      it:
+      <pre>bad(0);</pre>
+      <small><small>(debug output is rendered after eval but before the plot,
+      because otherwise this print-hack would spam output for every x
+      coordinate due to the plotting code)</small></small>
+    </p>
+
+    <p>
+      so applying everything until now for an order=9 sine, with sin(0)=0,
+      sin(pi/2)=0, i get...
+    </p>
+
+    <p>
+      <canvas id="taylor1_plot" width="500" height="280"></canvas>
+      <textarea id="taylor1_code" type="text" rows="17" spellcheck="false">
+      </textarea>
+      <pre id="taylor1_debug"></pre>
+    </p>
+    <script>
+    taylor1_code.value = `
+function good(x) { // cyan
+  return Math.sin(x);
+}
+function bad(x) { // yellow
+  x = (4*Math.abs(x*(.5/Math.PI)-Math.floor(x*(.5/Math.PI)+3/4)+1/4)-1)*(Math.PI/2);
+  const c1 = 1;
+  const c3=-0.16666666666666666;
+  const c5=0.008333333333333333;
+  const c7=-0.0001984126984126984;
+  const c9=0.0000027557319223985893;
+  const xx = x*x;
+  const calibration = 0.9999964574282637;
+  return x*(c1 + xx*(c3 + xx*(c5 + xx*(c7 + xx*c9)))) * calibration;
+  // ^^^ polynomial rewritten using "Horner's method"
+}
+    `.trim();
+    setup_taylor("taylor1");
+    </script>
+    <p>
+      in C this actually performs slightly worse than our previous best sine
+      from last post <small><small>(which puzzles me a little bit because the
+      previous one has a division, and the same number of multiplications, but
+      maybe it has better parallelism?)</small></small>. and in terms of
+      accuracy it's also worse! document your failures! some say there are more
+      to come. </p>
+    <p>
+      but one cool thing you can't take away from it: we analyzed and plotted
+      and understood what was going on (if only a little bit) instead of just
+      copying coefficients from wikipedia.
+    </p>
+    <p>
+      we have a reusable tool now!
+    </p>
+    <p>
+      we're going to be using it soon to implement exp2(x). but before we get
+      to that we need another tool: delicious low-level floating-point binary
+      hackery!
+    </p>
+    <p>
+      also re: <a href="https://en.wikipedia.org/wiki/Horner%27s_method">Horner's method</a>:
+      polynomials like
+      <pre>c0 + c1*(x**1) + c2*(x**2) + c3*(x**3) + ...</pre>
+      can be rewritten as
+      <pre>c0 + x*(c1 + x*(c2 + x*(c3 + ...)))</pre>
+      cool?
+    </p>
+    <p>
+      also-also a few last words on differentiation: it's the "magic part" of
+      taylor series where you'll find its strengths and weaknesses. some
+      software like wxmaxima and wolfram alpha can differentiate functions for
+      you (try if it can turn <tt>sin(x)</tt> into <tt>cos(x)</tt>). in the
+      code above, you only need to change the code that calculates <tt>fa</tt>
+      in order to approximate a completely different function (and maybe remove
+      the triangle wave stuff that's tailored to sines)
+    </p>
+    <p>
+      but taylor series can't deal with functions that have discontinuities,
+      unless their derivatives somehow "know about them". consider a square
+      wave, defined as (mixed math/JS syntax)
+      <pre>f(x)=(x%1)<.5?1:-1</pre>
+      you could say its derivative is
+      <pre>f'(x)=0</pre>
+      because square waves are flat most of the time, and maybe it's
+      "undefined" in the discontinuities where it jumps between 1 and -1, but
+      neither helps the "taylor series engine" approximate your function in any
+      way.
+    </p>
+    <p>
+      however, <a href="https://garten.salat.dev/audio-dsp/fourier.html">
+      froos has before talked about fourier series</a>, which can
+      approximate square waves and, well, anything, and <em>these</em> can be
+      differentiated! probably still doesn't mean taylor series will be any
+      good at sharp edges, but at least they'll have a chance.
+    </p>
+
+    <details>
+      <summary id="loc">show page source</summary>
+      <pre id="pre"></pre>
+    </details>
+
+    <script>
+    // render source code
+    const html = document.querySelector("html").outerHTML;
+    const loc = html.split("\n").length;
+    document.querySelector("#pre").textContent = html;
+    document.querySelector("#loc").textContent = `show source (${loc} loc)`;
+    </script>
+
+  </body>
+</html>
+

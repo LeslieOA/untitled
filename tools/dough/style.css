@@ -1,0 +1,105 @@
+@font-face {
+  font-family: "FontWithASyntaxHighlighter";
+  src: url("/FontWithASyntaxHighlighter-Regular.woff2") format("woff2");
+}
+
+body,
+html {
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: monospace;
+  font-size: 1.2em;
+  color: #edd;
+  text-align: left;
+  background-color: #111;
+
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  justify-items: center;
+}
+a {
+  color: white;
+  font-size: 1em;
+  cursor: pointer;
+}
+
+pre,
+input,
+textarea {
+  font-family: "FontWithASyntaxHighlighter", monospace;
+  overflow: auto;
+  padding: 8px;
+  font-size: 12px;
+  border: 0;
+  outline: none;
+  background-color: #44444480;
+  color: white;
+  width: 100%;
+  max-width: 100%;
+  /* margin-top: 8px; */
+  box-sizing: border-box;
+}
+
+ul,
+ol {
+  padding-left: 20px;
+}
+
+li {
+  padding: 4px 0;
+}
+button {
+  background: #111;
+  color: white;
+  border: 1px solid #aaa;
+}
+
+nav {
+  background: #333;
+  justify-content: center;
+  display: flex;
+  > div {
+    max-width: 100%;
+    width: 600px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    > h1 {
+      margin: 0;
+    }
+  }
+}
+
+main {
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  > section {
+    box-sizing: border-box;
+    padding: 10px;
+    width: 600px;
+    max-width: 100%;
+  }
+}
+
+@keyframes eval-flash {
+  from {
+    outline: 5px solid #ffffff;
+  }
+  to {
+    outline: 5px solid #ffffff00;
+  }
+}
+
+.evaluated {
+  animation: eval-flash 0.5s;
+}

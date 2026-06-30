@@ -1,0 +1,36 @@
+-- Session: 2026-06-28
+-- Tool: TidalCycles 1.10.1
+-- Launch: ghci -ghci-script ../Misc/BootTidal.hs
+-- Eval a block with Ctrl+Enter (VS Code) or C-c C-e (Emacs)
+
+-- ─── KICK OFF ────────────────────────────────────────────────
+d1 $ s "bd ~ sn ~"
+
+-- ─── BASIC DRUM PATTERN ──────────────────────────────────────
+d1 $ stack [
+  s "bd*2",
+  s "~ sn",
+  s "hh*8" # gain 0.6
+  ]
+
+-- ─── ADD SOME SWING ──────────────────────────────────────────
+d1 $ stack [
+  s "bd*2",
+  s "~ sn",
+  s "hh*8" # gain 0.6
+  ] # swing 0.1
+
+-- ─── MELODY ──────────────────────────────────────────────────
+d2 $ note "0 3 7 10" # s "superpiano" # gain 0.8
+
+-- ─── BASS ────────────────────────────────────────────────────
+d3 $ note "<0 -5 -7 -3>" # s "supersaw"
+   # lpf 800 # gain 0.9
+
+-- ─── SILENCE INDIVIDUAL TRACKS ───────────────────────────────
+-- d1 silence
+-- d2 silence
+-- d3 silence
+
+-- ─── SILENCE EVERYTHING ──────────────────────────────────────
+-- hush

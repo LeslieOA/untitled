@@ -1,0 +1,75 @@
+-- Session: 2026-06-29
+-- Source: dough.strudel.cc demo (the one on loop)
+-- Format: /key/value/key/value... — each line is one sound event
+-- Reference: dough.strudel.cc/reference
+
+-- ── CHORD TONES (sawtooth, 4-voice) ──────────────────────────
+-- Beat 0: A3 D4 G4 C5 (lpf 1100 — closed, dark)
+/time/0/duration/2/repeat/8/note/57/vib/4/vibmod/0.2/lpf/1100/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/0/duration/2/repeat/8/note/62/vib/4/vibmod/0.2/lpf/1100/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/0/duration/2/repeat/8/note/67/vib/4/vibmod/0.2/lpf/1100/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/0/duration/2/repeat/8/note/72/vib/4/vibmod/0.2/lpf/1100/lpe/1/lpd/0.5/lpq/0.1/s/saw
+
+-- Beat 4: same chord, lpf opens (1629)
+/time/4/duration/2/repeat/8/note/57/vib/4/vibmod/0.2/lpf/1629.006727063226/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/4/duration/2/repeat/8/note/62/vib/4/vibmod/0.2/lpf/1629.006727063226/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/4/duration/2/repeat/8/note/67/vib/4/vibmod/0.2/lpf/1629.006727063226/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/4/duration/2/repeat/8/note/72/vib/4/vibmod/0.2/lpf/1629.006727063226/lpe/1/lpd/0.5/lpq/0.1/s/saw
+
+-- Beat 2: G3 Bb3 F4 A4 C5 (5-voice, lpf wide open 1956)
+/time/2/duration/2/repeat/8/note/55/vib/4/vibmod/0.2/lpf/1955.9508646656382/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/2/duration/2/repeat/8/note/58/vib/4/vibmod/0.2/lpf/1955.9508646656382/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/2/duration/2/repeat/8/note/65/vib/4/vibmod/0.2/lpf/1955.9508646656382/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/2/duration/2/repeat/8/note/69/vib/4/vibmod/0.2/lpf/1955.9508646656382/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/2/duration/2/repeat/8/note/72/vib/4/vibmod/0.2/lpf/1955.9508646656382/lpe/1/lpd/0.5/lpq/0.1/s/saw
+
+-- Beat 6: G3 A3 D4 E4 B4 (lpf closes back 571 — darker again)
+/time/6/duration/2/repeat/8/note/55/vib/4/vibmod/0.2/lpf/570.9932729367742/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/6/duration/2/repeat/8/note/57/vib/4/vibmod/0.2/lpf/570.9932729367742/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/6/duration/2/repeat/8/note/62/vib/4/vibmod/0.2/lpf/570.9932729367742/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/6/duration/2/repeat/8/note/64/vib/4/vibmod/0.2/lpf/570.9932729367742/lpe/1/lpd/0.5/lpq/0.1/s/saw
+/time/6/duration/2/repeat/8/note/71/vib/4/vibmod/0.2/lpf/570.9932729367742/lpe/1/lpd/0.5/lpq/0.1/s/saw
+
+-- ── BASS ARPEGGIOS (pulse wave, pan left) ────────────────────
+-- ascending arpeggio in each 2-beat block, pan=0 (left)
+/time/0/duration/0.5/repeat/8/note/26/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/0.25/duration/0.5/repeat/8/note/38/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/0.5/duration/0.5/repeat/8/note/50/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/0.75/duration/0.5/repeat/8/note/62/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+
+/time/2/duration/0.5/repeat/8/note/31/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/2.25/duration/0.5/repeat/8/note/43/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/2.5/duration/0.5/repeat/8/note/55/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/2.75/duration/0.5/repeat/8/note/67/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+
+/time/4/duration/0.5/repeat/8/note/26/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/4.25/duration/0.5/repeat/8/note/38/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/4.5/duration/0.5/repeat/8/note/50/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/4.75/duration/0.5/repeat/8/note/62/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+
+/time/6/duration/0.5/repeat/8/note/33/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/6.25/duration/0.5/repeat/8/note/45/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/6.5/duration/0.5/repeat/8/note/57/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+/time/6.75/duration/0.5/repeat/8/note/69/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/0/distort/3
+
+-- ── COUNTER ARPEGGIOS (pulse wave, pan right) ─────────────────
+-- descending (retrograde) in each block, pan=1 (right)
+/time/0/duration/0.5/repeat/8/note/26/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/1.25/duration/0.5/repeat/8/note/69/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/1.5/duration/0.5/repeat/8/note/57/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/1.75/duration/0.5/repeat/8/note/45/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+
+/time/2/duration/0.5/repeat/8/note/31/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/3.25/duration/0.5/repeat/8/note/62/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/3.5/duration/0.5/repeat/8/note/50/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/3.75/duration/0.5/repeat/8/note/38/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+
+/time/4/duration/0.5/repeat/8/note/26/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/5.25/duration/0.5/repeat/8/note/67/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/5.5/duration/0.5/repeat/8/note/55/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/5.75/duration/0.5/repeat/8/note/43/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+
+/time/6/duration/0.5/repeat/8/note/33/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/7.25/duration/0.5/repeat/8/note/62/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/7.5/duration/0.5/repeat/8/note/50/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3
+/time/7.75/duration/0.5/repeat/8/note/38/clip/0.25/s/pulse/pw/0.4/lpf/450/lpe/3/lpd/0.1/pan/1/distort/3

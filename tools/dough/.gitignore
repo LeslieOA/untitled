@@ -1,0 +1,11 @@
+dough
+#dough.pcm
+node_modules
+uzu.html
+.DS_Store
+*.wasm
+snapshots/_all.pcm
+.vscode
+samples
+branches.txt
+.*swp

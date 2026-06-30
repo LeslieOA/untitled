@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🌱 Padé approximation</title>
+    <style>
+      body {
+        background-color: #222;
+        max-width: 500px;
+        margin: auto;
+        font-family: serif;
+        font-size: 1.2em;
+        color: #edd;
+        text-align: left;
+        padding: 20px 8px;
+      }
+      @font-face {
+        font-family: "FontWithASyntaxHighlighter";
+        src: url("/fonts/FontWithASyntaxHighlighter-Regular.woff2")
+          format("woff2");
+      }
+      a {
+        color: cyan;
+        font-size: 1em;
+        cursor: pointer;
+      }
+      textarea {
+        font-family: "FontWithASyntaxHighlighter", monospace;
+      }
+      textarea,
+      pre {
+        padding: 8px;
+        font-size: 12px;
+        border: 0;
+        overflow: auto;
+        outline: none;
+        background-color: #44444490;
+        color: white;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      input[type="range"] {
+        width: 390px;
+      }
+      #floatview {
+        user-select: none;
+      }
+      .bitnum {
+        font-size: .9em;
+        font-family: monospace;
+        color: black;
+        font-weight: bold;
+        text-align: center;
+        cursor: pointer;
+      }
+      .signbit {
+        background: yellow;
+      }
+      .expbits {
+        background: magenta;
+      }
+      .valbits {
+        background: cyan;
+      }
+    </style>
+    <script>
+
+    function setup_plot(name) {
+      const textarea = document.getElementById(name + "_code");
+      const canvas = document.getElementById(name + "_plot");
+      const debug = document.getElementById(name + "_debug");
+      const a_input = document.getElementById(name + "_a");
+      const m_input = document.getElementById(name + "_m");
+      const n_input = document.getElementById(name + "_n");
+      const autocalibrate_input = document.getElementById(name + "_autocalibrate");
+      const triangle_input = document.getElementById(name + "_triangle");
+
+      let ctx = canvas && canvas.getContext('2d');
+      let src = textarea.value;
+
+      let scale = 50;
+      let pan_x = 0;
+      let pan_y = 0;
+      let width,height;
+
+      function map_screen_to_local(sx,sy) {
+        const mid_x = width * .5;
+        const mid_y = height * .5;
+        const lx = (sx - mid_x - pan_x) / scale;
+        const ly = (sy - mid_y - pan_y) / scale;
+        return [lx,ly];
+      }
+
+      function map_local_to_screen(lx,ly) {
+        const mid_x = width * .5;
+        const mid_y = height * .5;
+        const sx = (mid_x + pan_x) + lx * scale;
+        const sy = (mid_y + pan_y) + ly * scale;
+        return [sx,sy];
+      }
+
+      function draw(cursor_x) {
+        width = canvas && canvas.width;
+        height = canvas && canvas.height;
+        ctx && ctx.clearRect(0, 0, width, height);
+        const xstep = 1.11;
+
+        const INPUT_A = a_input ? parseFloat(a_input.value)   : null;
+        const INPUT_M = m_input ? parseInt(m_input.value, 10) : null;
+        const INPUT_N = n_input ? parseInt(n_input.value, 10) : null;
+        const INPUT_AUTOCALIBRATE = autocalibrate_input ? autocalibrate_input.checked : false;
+        const INPUT_TRIANGLE = triangle_input ? triangle_input.checked          : null;
+
+        let debug_txt = "";
+
+        function print(s) { // for use inside eval()
+          debug_txt += (s+"\n");
+        }
+
+        try {
+          eval(src);
+        } catch (e) {
+          let msg = e.message;
+          if (e.lineNumber !== undefined) msg += " (on line " + e.lineNumber + ")"; // non-standard
+          if (ctx) {
+            ctx.fillStyle = "rgba(255,0,0,0.3)";
+            ctx.fillRect(0,0,width,height);
+            ctx.fillStyle = "rgba(255,255,0,1)";
+            ctx.fillText(msg, 25, 25);
+            return;
+          } else {
+            debug_txt += msg;
+          }
+        }
+
+        if (debug) {
+          debug.innerText = debug_txt;
+          debug.style.display = (debug_txt==="") ? "none" : "";
+        }
+
+        if (ctx) {
+          ctx.lineWidth = 5;
+          ctx.strokeStyle = "rgba(255,0,255,.04)";
+          const [sx0,sy0] = map_local_to_screen(0,0);
+          ctx.beginPath();
+          ctx.moveTo(sx0,0);
+          ctx.lineTo(sx0,height);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0,sy0);
+          ctx.lineTo(width,sy0);
+          ctx.stroke();
+
+          ctx.lineWidth = 1;
+          ctx.fillStyle = "rgba(255,0,0,.2)";
+          ctx.beginPath();
+          let min_e,max_e;
+          const d2e = (d) => (d!==0) ? Math.log10(Math.abs(d)) : -1e6;
+          if (canvas.getAttribute("data-mode") === "positiveonly") {
+            ctx.moveTo(map_local_to_screen(0,0)[0],height);
+          } else {
+            ctx.moveTo(0,height);
+          }
+          for (let cx=0; cx<width; cx+=xstep/4) {
+            const x = map_screen_to_local(cx,0)[0];
+            const e = d2e(good(x) - bad(x));
+            const cy = height - (e + 15) * 15;
+            ctx.lineTo(cx, cy);
+          }
+          ctx.lineTo(width,height);
+          ctx.fill();
+
+          if (INPUT_A !== null) {
+            const sx = map_local_to_screen(INPUT_A,0)[0];
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "green";
+            ctx.beginPath();
+            ctx.moveTo(sx,height);
+            ctx.lineTo(sx,0);
+            ctx.stroke();
+          }
+
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = "cyan";
+          ctx.beginPath();
+          for (let cx=0; cx<width; cx+=xstep) {
+            const x = map_screen_to_local(cx,0)[0];
+            const y = good(x);
+            const cy = map_local_to_screen(0,-y)[1];
+            ctx[cx?"lineTo":"moveTo"](cx, cy);
+          }
+          ctx.stroke();
+
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = "yellow";
+          ctx.beginPath();
+          for (let cx=0; cx<width; cx+=xstep) {
+            const x = map_screen_to_local(cx,0)[0];
+            const y = bad(x);
+            const cy = map_local_to_screen(0,-y)[1];
+            ctx[cx?"lineTo":"moveTo"](cx, cy);
+          }
+          ctx.stroke();
+
+          if (cursor_x !== undefined) {
+            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = "white";
+            ctx.beginPath();
+            ctx.moveTo(cursor_x, 0);
+            ctx.lineTo(cursor_x, height);
+            ctx.stroke();
+            const x = map_screen_to_local(cursor_x,0)[0];
+            const ygud = good(x);
+            const ybad = bad(x);
+            const y0 = Math.min(ygud, ybad);
+            const y1 = Math.max(ygud, ybad);
+            const sy0 = map_local_to_screen(0,-y0)[1];
+            const sy1 = map_local_to_screen(0,-y1)[1];
+            ctx.fillStyle = "rgba(255,0,0,0.6)";
+            ctx.fillRect(cursor_x-5,sy0,10,sy1-sy0);
+            ctx.fillStyle = "white";
+            let str = " error=" + (ygud-ybad).toPrecision(6);
+            ctx.fillText(str, cursor_x, height - 3);
+            str = ` x=${x.toFixed(3)} y[good]=${ygud.toFixed(3)} y[bad]=${ybad.toFixed(3)}`;
+            ctx.fillText(str, cursor_x, 20);
+          }
+        }
+      }
+      draw();
+
+      textarea.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.altKey) && e.key === "Enter") {
+          src = textarea.value;
+          draw();
+        }
+      });
+
+      if (canvas) {
+        function zoom_at(x,y,dzoom) {
+          const [plx,ply] = map_screen_to_local(x, y);
+          scale *= 2**(dzoom * -3e-4);
+          const [lx,ly] = map_screen_to_local(x, y);
+          pan_x += (lx-plx)*scale;
+          pan_y += (ly-ply)*scale;
+        }
+        canvas.addEventListener("wheel", (e) => {
+          e.preventDefault();
+          zoom_at(e.offsetX, e.offsetY, e.deltaY);
+          draw();
+        });
+
+        let prev_touch_d=null, prev_touch_mx=null, prev_touch_my=null;
+        function handle_touch(e) {
+          e.preventDefault();
+          const ts = e.targetTouches;
+          const r = e.target.getBoundingClientRect();
+          if (ts.length === 1) {
+            prev_touch_d = prev_touch_mx = prev_touch_my = null;
+            draw(ts[0].pageX - r.left);
+          } else if (ts.length === 2) {
+            const [x0,y0] = [ts[0].clientX - r.x, ts[0].clientY - r.y];
+            const [x1,y1] = [ts[1].clientX - r.x, ts[1].clientY - r.y];
+            const [mx,my] = [(x0+x1)*.5, (y0+y1)*.5];
+            const d = Math.sqrt((x1-x0)**2 + (y1-y0)**2);
+            if (prev_touch_d !== null) {
+              zoom_at(mx, my, -(d-prev_touch_d) * 30);
+            }
+            if (prev_touch_mx !== null) {
+              pan_x += mx - prev_touch_mx;
+              pan_y += my - prev_touch_my;
+            }
+            [prev_touch_d,prev_touch_mx,prev_touch_my] = [d,mx,my];
+            draw();
+          } else {
+            prev_touch_d = prev_touch_mx = prev_touch_my = null;
+            draw();
+          }
+        }
+        canvas.addEventListener("touchstart", e=>handle_touch(e));
+        canvas.addEventListener("touchmove", e=>handle_touch(e));
+        canvas.addEventListener("touchend", e=>handle_touch(e));
+
+        let is_panning = false;
+        let prev_pan_mx, prev_pan_my;
+        canvas.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          is_panning = true;
+          prev_pan_mx = e.offsetX;
+          prev_pan_my = e.offsetY;
+        });
+        canvas.addEventListener("mouseup", (e) => {
+          if (!is_panning) return;
+          e.preventDefault();
+          is_panning = false;
+          draw();
+        });
+        canvas.addEventListener("mousemove", (e) => {
+          e.preventDefault();
+          const mx = e.offsetX;
+          const my = e.offsetY;
+          if (is_panning) {
+            pan_x += mx - prev_pan_mx;
+            pan_y += my - prev_pan_my;
+            prev_pan_mx = mx;
+            prev_pan_my = my;
+            draw();
+          } else {
+            draw(mx);
+          }
+        });
+        canvas.addEventListener("mouseleave", (e) => {
+          draw();
+        });
+      }
+
+      function update_a() {
+        a_input.parentElement.getElementsByClassName("txt")[0].innerText = parseFloat(a_input.value).toFixed(3);
+        draw();
+      }
+
+      function reset_a() {
+        if (!a_input) return;
+        let d = a_input.getAttribute("data-default");
+        if (!d) d=0;
+        a_input.value = d;
+        update_a();
+      }
+      reset_a();
+
+      a_input && a_input.addEventListener("input", (e) => {
+        update_a();
+      });
+
+      triangle_input && triangle_input.addEventListener("change", (e) => {
+        draw();
+      });
+
+      a_input && a_input.addEventListener("dblclick", (e) => {
+        reset_a();
+        update_a();
+      });
+
+      function update_nm() {
+        n_input.parentElement.getElementsByClassName("txt")[0].innerText = parseInt(n_input.value, 10);
+        m_input.parentElement.getElementsByClassName("txt")[0].innerText = parseInt(m_input.value, 10);
+        draw();
+      }
+
+      n_input && n_input.addEventListener("input", (e) => {
+        let n = parseInt(n_input.value, 10);
+        let m = parseInt(m_input.value, 10);
+        if (n < m) m_input.value=n;
+        update_nm();
+      });
+
+      m_input && m_input.addEventListener("input", (e) => {
+        let n = parseInt(n_input.value, 10);
+        let m = parseInt(m_input.value, 10);
+        if (m > n) n_input.value=m;
+        update_nm();
+      });
+
+      autocalibrate_input && autocalibrate_input.addEventListener("change", (e) => {
+        draw();
+      });
+
+    }
+    </script>
+
+  </head>
+  <body>
+    <h2>🌱 Padé approximation</h2>
+
+    <p>
+      <ul>
+
+        <li>you can approximate a function using a "rational function"
+        <tt>R(x)=P(x)/Q(x)</tt>. <tt>P(x)</tt> is a polynomial of order N, and
+        <tt>Q(x)</tt> is a polynomial of order M. N&amp;M are chosen by us, but
+        the paper i'm learning this from says error will be lowest when N is M,
+        or one higher.
+
+        <li>we need a "Maclaurin series" of the function, which is just a
+        Taylor series with a=0. but we can still "simulate the a-slider" by
+        putting it inside the function we're deriving.
+
+        <li><tt>a[i]</tt> is the <tt>i</tt>th coefficient of the Maclaurin
+        series.
+
+        <li><tt>p[]</tt> and <tt>q[]</tt> are the coefficients of <tt>P(x)</tt>
+        and <tt>Q(x)</tt>. these are unknown and must be determined from
+        <tt>a[i]</tt>. to do that, we need a way to solve a set of linear
+        equations&hellip;
+
+      </ul>
+      &hellip; so lets solve a set of linear equations?
+    </p>
+
+    <p>
+      <textarea id="pade0_code" type="text" rows="43" spellcheck="false">
+      </textarea>
+      <pre id="pade0_debug"></pre>
+    </p>
+    <script>
+    pade0_code.value = `
+function linsolve(A) {
+  // first do gaussian elimination on A:
+  let M=A.length, N=A[0].length, h, k;
+  for (h=k=0; (h<M) && (k<N); ++h, ++k) {
+    let v_max=undefined, i_max;
+    for (let i=h; i<M; ++i) {
+      let v = Math.abs(A[i][k]);
+      if (v_max === undefined || v>v_max) {
+        i_max = i; v_max = v;
+      }
+    }
+    if (A[i_max][k] === 0) {
+      ++k;
+    } else {
+      const tmp=A[h]; A[h]=A[i_max]; A[i_max]=tmp; // swap rows
+      for (let i=(h+1); i<M; ++i) {
+        let f = A[i][k] / A[h][k]
+        A[i][k] = 0;
+        for (let j=(k+1); j<N; ++j) {
+          A[i][j] -= A[h][j] * f;
+        }
+      }
+    }
+  }
+  // with A in row echelon form, we can back substitute
+  // and determine individual variables:
+  let r = [];
+  for (let i=(M-1); i>=0; --i) {
+    const row=A[i];
+    let q = row[N-1];
+    for (let j=(i+1); j<M; ++j) {
+      q -= row[j]*r[j];
+    }
+    r[i] = q / row[i];
+  }
+  return r;
+}
+print(linsolve([
+  [ 2, 1,-1,  8], //   2*x + y -   z =   8
+  [-3,-1, 2,-11], //  -3*x - y + 2*z = -11
+  [-2, 1, 2, -3], //  -2*x + y + 2*z =  -3
+]));              // expecting x=2,y=3,z=-1
+
+
+
+    `.trim();
+    setup_plot("pade0");
+
+    </script>
+
+    <p>
+      this uses "gaussian elimination" and "back substitution". the example
+      finds a solution for 3 equations with 3 variables. both the code and
+      example equations were taking from the wiki page on gaussian elimination.
+    </p>
+
+    <p>
+      earlier we stole a Padé approximated sine, so maybe we can make one
+      ourself?
+      <canvas id="pade1_plot" width="500" height="280"></canvas>
+      <label><input type="range" id="pade1_n" min="1" max="10" value="2"/> N=<span class="txt">2</span></label><br/>
+      <label><input type="range" id="pade1_m" min="1" max="10" value="2"/> M=<span class="txt">2</span></label><br/>
+      <label title="double-click to reset"><input type="range" id="pade1_a" data-default="0" min="-6" max="6" step="0.0001" value="1.5"/> <span style="color:green">a</span>=<span class="txt">1.500</span></label><br/>
+      <label><input type="checkbox" id="pade1_autocalibrate"/> auto-calibrate</label><br/>
+      <label><input type="checkbox" id="pade1_triangle"/> reshape x as triangle wave</label>
+      <textarea id="pade1_code" type="text" rows="20" spellcheck="false">
+      </textarea>
+      <pre id="pade1_debug"></pre>
+    </p>
+    <script>
+    pade1_code.value = `
+function linsolve(A) {
+  // first do gaussian elimination on A:
+  let M=A.length, N=A[0].length, h, k;
+  for (h=k=0; (h<M) && (k<N); ++h, ++k) {
+    let v_max=undefined, i_max;
+    for (let i=h; i<M; ++i) {
+      let v = Math.abs(A[i][k]);
+      if (v_max === undefined || v>v_max) {
+        i_max = i; v_max = v;
+      }
+    }
+    if (A[i_max][k] === 0) {
+      ++k;
+    } else {
+      const tmp=A[h]; A[h]=A[i_max]; A[i_max]=tmp; // swap rows
+      for (let i=(h+1); i<M; ++i) {
+        let f = A[i][k] / A[h][k]
+        A[i][k] = 0;
+        for (let j=(k+1); j<N; ++j) {
+          A[i][j] -= A[h][j] * f;
+        }
+      }
+    }
+  }
+  // with A in row echelon form, we can back substitute
+  // and determine individual variables:
+  let r = [];
+  for (let i=(M-1); i>=0; --i) {
+    const row=A[i];
+    let q = row[N-1];
+    for (let j=(i+1); j<M; ++j) {
+      q -= row[j]*r[j];
+    }
+    r[i] = q / row[i];
+  }
+  return r;
+}
+function taylor_coef(order) {
+  if (order === 0) {
+    return Math.sin(INPUT_A);
+  } else {
+    if (order < 1) throw new Error("invalid order: " + order);
+    const factorial = (x) => x<=1 ? 1 : x*factorial(x-1);
+    const fa = ([Math.sin, Math.cos, x=>-Math.sin(x), x=>-Math.cos(x)][order%4])(INPUT_A);
+    return fa / factorial(order);
+  }
+}
+let p,q;
+function setup_pade() {
+  // solve for q[]
+  let A = [];
+  for (let i=0; i<INPUT_M; ++i) {
+    let row = [];
+    for (let j=0; j<INPUT_M; ++j) {
+      row.push(taylor_coef(INPUT_N-INPUT_M+i+j));
+    }
+    row.push(-taylor_coef(INPUT_N+i));
+    A.push(row);
+  }
+  q = linsolve(A);
+  q.push(1); // q0=1 always
+  q.reverse();
+  // solve for p[]
+  p=[];
+  for (let i=0; i<=INPUT_N; ++i) {
+    let z=0;
+    for (let j=0; j<=i; ++j) {
+      z += (q[i-j]||0) * taylor_coef(j);
+    }
+    p.push(z);
+  }
+  print(p); print(q);
+}
+setup_pade();
+function pade(x) {
+  x -= INPUT_A;
+  let num = 0;
+  for (let i=0; i<p.length; ++i) num += (p[i] * (x**i));
+  let denom = 0;
+  for (let i=0; i<q.length; ++i) denom += (q[i] * (x**i));
+  return num / denom;
+}
+
+function good(x) {
+  return Math.sin(x);
+}
+function bad(x) {
+  if (INPUT_TRIANGLE) x = (4*Math.abs(x*(.5/Math.PI) - Math.floor(x*(.5/Math.PI) + 3/4) + 1/4) - 1) * (Math.PI/2);
+  let y=pade(x);
+  if (INPUT_AUTOCALIBRATE) y *= (1/pade(Math.PI/2));
+  return y;
+}
+    `.trim();
+    setup_plot("pade1");
+    </script>
+
+    <p>
+      it works pretty well. the P(x)/Q(x) coefficients are printed below the
+      code; notice how half of them are zero when a=0 (again - we saw this back
+      in the article on taylor series too). also, linsolve() fails sometimes,
+      e.g. for N=M=3. not sure what's going on. judging by the polynomials in
+      the previous best stolen sine, it has N=M=6, and if we use those
+      parameters, we see the same max error.
+    </p>
+
+    <p>
+      how about log2
+      <canvas id="pade2_plot" width="500" height="280" data-mode="positiveonly"></canvas>
+      <label><input type="range" id="pade2_n" min="1" max="10" value="2"/> N=<span class="txt">2</span></label><br/>
+      <label><input type="range" id="pade2_m" min="1" max="10" value="2"/> M=<span class="txt">2</span></label><br/>
+      <label title="double-click to reset"><input type="range" data-default="1.5" id="pade2_a" min="1" max="2" step="0.0001" value="1.5"/> <span style="color:green">a</span>=<span class="txt">1.500</span></label><br/>
+      <label><input type="checkbox" id="pade2_autocalibrate"/> auto-calibrate</label><br/>
+      <textarea id="pade2_code" type="text" rows="20" spellcheck="false">
+      </textarea>
+      <pre id="pade2_debug"></pre>
+    </p>
+    <script>
+    pade2_code.value = `
+function linsolve(A) {
+  // first do gaussian elimination on A:
+  let M=A.length, N=A[0].length, h, k;
+  for (h=k=0; (h<M) && (k<N); ++h, ++k) {
+    let v_max=undefined, i_max;
+    for (let i=h; i<M; ++i) {
+      let v = Math.abs(A[i][k]);
+      if (v_max === undefined || v>v_max) {
+        i_max = i; v_max = v;
+      }
+    }
+    if (A[i_max][k] === 0) {
+      ++k;
+    } else {
+      const tmp=A[h]; A[h]=A[i_max]; A[i_max]=tmp; // swap rows
+      for (let i=(h+1); i<M; ++i) {
+        let f = A[i][k] / A[h][k]
+        A[i][k] = 0;
+        for (let j=(k+1); j<N; ++j) {
+          A[i][j] -= A[h][j] * f;
+        }
+      }
+    }
+  }
+  // with A in row echelon form, we can back substitute
+  // and determine individual variables:
+  let r = [];
+  for (let i=(M-1); i>=0; --i) {
+    const row=A[i];
+    let q = row[N-1];
+    for (let j=(i+1); j<M; ++j) {
+      q -= row[j]*r[j];
+    }
+    r[i] = q / row[i];
+  }
+  return r;
+}
+function f32_to_u32(f) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf); // float32 view into buf
+  const u32 = new Uint32Array(buf); // uint32 view into buf
+  f32[0] = f;
+  return u32[0];
+}
+function u32_to_f32(u) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf);
+  const u32 = new Uint32Array(buf);
+  u32[0] = u;
+  return f32[0];
+}
+function taylor_coef(order) {
+  if (order === 0) {
+    return Math.log2(INPUT_A);
+  } else {
+    const factorial = (x) => x<=1 ? 1 : x*factorial(x-1);
+    return (((order&1)?1:-1) * factorial(order-1) / (Math.log(2) * (INPUT_A**order))) / factorial(order);
+  }
+}
+let p,q;
+function setup_pade() {
+  // solve for q[]
+  let A = [];
+  for (let i=0; i<INPUT_M; ++i) {
+    let row = [];
+    for (let j=0; j<INPUT_M; ++j) {
+      row.push(taylor_coef(INPUT_N-INPUT_M+i+j));
+    }
+    row.push(-taylor_coef(INPUT_N+i));
+    A.push(row);
+  }
+  q = linsolve(A);
+  q.push(1); // q0=1 always
+  q.reverse();
+  // solve for p[]
+  p=[];
+  for (let i=0; i<=INPUT_N; ++i) {
+    let z=0;
+    for (let j=0; j<=i; ++j) {
+      z += (q[i-j]||0) * taylor_coef(j);
+    }
+    p.push(z);
+  }
+  print(p); print(q);
+}
+setup_pade();
+function pade(x) {
+  x -= INPUT_A;
+  let num = 0;
+  for (let i=0; i<p.length; ++i) num += (p[i] * (x**i));
+  let denom = 0;
+  for (let i=0; i<q.length; ++i) denom += (q[i] * (x**i));
+  return num / denom;
+}
+
+function good(x) {
+  return Math.log2(x);
+}
+function bad(x) {
+  const stairstep = (f32_to_u32(x) >> 23) - 127;
+  const xc = u32_to_f32((f32_to_u32(x) & ((1<<23)-1)) | (127<<23));
+  let c=0;
+  if (INPUT_AUTOCALIBRATE) {
+    const c1 = Math.log2(1)-pade(1);
+    const c2 = Math.log2(2)-pade(2);
+    c = c1 + (c2-c1)*(xc-1);
+  }
+  return stairstep + pade(xc) + c;
+}
+    `.trim();
+    setup_plot("pade2");
+    </script>
+    <p>
+      here i see max error about 0.00002 for N=3,M=2, while a 6th order Taylor
+      series last time had an error of about 0.00007. N=3 suggests a 3rd order
+      polynomial, but the numerator coefficients are still only second order
+      for some reason (the coefficient for <tt>x**3</tt> is zero). not sure
+      what's going on here.
+    </p>
+
+    <details>
+      <summary id="loc">show page source</summary>
+      <pre id="pre"></pre>
+    </details>
+
+    <script>
+    // render source code
+    const html = document.querySelector("html").outerHTML;
+    const loc = html.split("\n").length;
+    document.querySelector("#pre").textContent = html;
+    document.querySelector("#loc").textContent = `show source (${loc} loc)`;
+    </script>
+
+  </body>
+</html>

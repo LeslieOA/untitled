@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🌱 function approximation</title>
+    <style>
+      body {
+        background-color: #222;
+        max-width: 500px;
+        margin: auto;
+        font-family: serif;
+        font-size: 1.2em;
+        color: #edd;
+        text-align: left;
+        padding: 20px 8px;
+      }
+      @font-face {
+        font-family: "FontWithASyntaxHighlighter";
+        src: url("/fonts/FontWithASyntaxHighlighter-Regular.woff2")
+          format("woff2");
+      }
+      a {
+        color: cyan;
+        font-size: 1em;
+        cursor: pointer;
+      }
+      textarea {
+        font-family: "FontWithASyntaxHighlighter", monospace;
+      }
+      textarea,
+      pre {
+        padding: 8px;
+        font-size: 12px;
+        border: 0;
+        overflow: auto;
+        outline: none;
+        background-color: #44444490;
+        color: white;
+        width: 100%;
+        box-sizing: border-box;
+      }
+    </style>
+    <script>
+    function setup_good_bad(name) {
+      const textarea = document.getElementById(name + "_code");
+      const canvas   = document.getElementById(name + "_plot");
+      let ctx = canvas.getContext('2d');
+      let src = textarea.value;
+
+      let scale = 50;
+      let pan_x = 0;
+      let pan_y = 0;
+      let width,height;
+
+      function map_screen_to_local(sx,sy) {
+        const mid_x = width * .5;
+        const mid_y = height * .5;
+        const lx = (sx - mid_x - pan_x) / scale;
+        const ly = (sy - mid_y - pan_y) / scale;
+        return [lx,ly];
+      }
+
+      function map_local_to_screen(lx,ly) {
+        const mid_x = width * .5;
+        const mid_y = height * .5;
+        const sx = (mid_x + pan_x) + lx * scale;
+        const sy = (mid_y + pan_y) + ly * scale;
+        return [sx,sy];
+      }
+
+      function draw(cursor_x) {
+        width = canvas.width;
+        height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+        const xstep = 1.11;
+
+        try {
+          eval(src);
+        } catch (e) {
+          ctx.fillStyle = "rgba(255,0,0,0.3)";
+          ctx.fillRect(0,0,width,height);
+          let msg = e.message;
+          if (e.lineNumber !== undefined) msg += " (on line " + e.lineNumber + ")"; // non-standard
+          ctx.fillStyle = "rgba(255,255,0,1)";
+          ctx.fillText(msg, 25, 25);
+          return;
+        }
+
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = "rgba(255,0,255,.04)";
+        const [sx0,sy0] = map_local_to_screen(0,0);
+        ctx.beginPath();
+        ctx.moveTo(sx0,0);
+        ctx.lineTo(sx0,height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0,sy0);
+        ctx.lineTo(width,sy0);
+        ctx.stroke();
+
+        ctx.lineWidth = 1;
+        ctx.fillStyle = "rgba(255,0,0,.2)";
+        ctx.beginPath();
+        let min_e,max_e;
+        const d2e = (d) => (d!==0) ? Math.log10(Math.abs(d)) : -1e6;
+        ctx.moveTo(0,height);
+        for (let cx=0; cx<width; cx+=xstep/4) {
+          const x = map_screen_to_local(cx,0)[0];
+          const e = d2e(good(x) - bad(x));
+          const cy = height - (e + 15) * 15;
+          ctx.lineTo(cx, cy);
+        }
+        ctx.lineTo(width,height);
+        ctx.fill();
+
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "cyan";
+        ctx.beginPath();
+        for (let cx=0; cx<width; cx+=xstep) {
+          const x = map_screen_to_local(cx,0)[0];
+          const y = good(x);
+          const cy = map_local_to_screen(0,-y)[1];
+          ctx[cx?"lineTo":"moveTo"](cx, cy);
+        }
+        ctx.stroke();
+
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "yellow";
+        ctx.beginPath();
+        for (let cx=0; cx<width; cx+=xstep) {
+          const x = map_screen_to_local(cx,0)[0];
+          const y = bad(x);
+          const cy = map_local_to_screen(0,-y)[1];
+          ctx[cx?"lineTo":"moveTo"](cx, cy);
+        }
+        ctx.stroke();
+
+        if (cursor_x !== undefined) {
+          ctx.lineWidth = 0.5;
+          ctx.strokeStyle = "white";
+          ctx.beginPath();
+          ctx.moveTo(cursor_x, 0);
+          ctx.lineTo(cursor_x, height);
+          ctx.stroke();
+          const x = map_screen_to_local(cursor_x,0)[0];
+          const ygud = good(x);
+          const ybad = bad(x);
+          const y0 = Math.min(ygud, ybad);
+          const y1 = Math.max(ygud, ybad);
+          const sy0 = map_local_to_screen(0,-y0)[1];
+          const sy1 = map_local_to_screen(0,-y1)[1];
+          ctx.fillStyle = "rgba(255,0,0,0.6)";
+          ctx.fillRect(cursor_x-5,sy0,10,sy1-sy0);
+          ctx.fillStyle = "white";
+          let str = " error=" + (ygud-ybad).toPrecision(6);
+          ctx.fillText(str, cursor_x, height - 3);
+          str = ` x=${x.toFixed(3)} y[good]=${ygud.toFixed(3)} y[bad]=${ybad.toFixed(3)}`;
+          ctx.fillText(str, cursor_x, 20);
+        }
+
+      }
+      draw();
+
+      textarea.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.altKey) && e.key === "Enter") {
+          src = textarea.value;
+          draw();
+        }
+      });
+
+      function zoom_at(x,y,dzoom) {
+        const [plx,ply] = map_screen_to_local(x, y);
+        scale *= 2**(dzoom * -3e-4);
+        const [lx,ly] = map_screen_to_local(x, y);
+        pan_x += (lx-plx)*scale;
+        pan_y += (ly-ply)*scale;
+      }
+      canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        zoom_at(e.offsetX, e.offsetY, e.deltaY);
+        draw();
+      });
+
+      let prev_touch_d=null, prev_touch_mx=null, prev_touch_my=null;
+      function handle_touch(e) {
+        e.preventDefault();
+        const ts = e.targetTouches;
+        const r = e.target.getBoundingClientRect();
+        if (ts.length === 1) {
+          prev_touch_d = prev_touch_mx = prev_touch_my = null;
+          draw(ts[0].pageX - r.left);
+        } else if (ts.length === 2) {
+          const [x0,y0] = [ts[0].clientX - r.x, ts[0].clientY - r.y];
+          const [x1,y1] = [ts[1].clientX - r.x, ts[1].clientY - r.y];
+          const [mx,my] = [(x0+x1)*.5, (y0+y1)*.5];
+          const d = Math.sqrt((x1-x0)**2 + (y1-y0)**2);
+          if (prev_touch_d !== null) {
+            zoom_at(mx, my, -(d-prev_touch_d) * 30);
+          }
+          if (prev_touch_mx !== null) {
+            pan_x += mx - prev_touch_mx;
+            pan_y += my - prev_touch_my;
+          }
+          [prev_touch_d,prev_touch_mx,prev_touch_my] = [d,mx,my];
+          draw();
+        } else {
+          prev_touch_d = prev_touch_mx = prev_touch_my = null;
+          draw();
+        }
+      }
+      canvas.addEventListener("touchstart", e=>handle_touch(e));
+      canvas.addEventListener("touchmove", e=>handle_touch(e));
+      canvas.addEventListener("touchend", e=>handle_touch(e));
+
+      let is_panning = false;
+      let prev_pan_mx, prev_pan_my;
+      canvas.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        is_panning = true;
+        prev_pan_mx = e.offsetX;
+        prev_pan_my = e.offsetY;
+      });
+      canvas.addEventListener("mouseup", (e) => {
+        if (!is_panning) return;
+        e.preventDefault();
+        is_panning = false;
+        draw();
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        e.preventDefault();
+        const mx = e.offsetX;
+        const my = e.offsetY;
+        if (is_panning) {
+          pan_x += mx - prev_pan_mx;
+          pan_y += my - prev_pan_my;
+          prev_pan_mx = mx;
+          prev_pan_my = my;
+          draw();
+        } else {
+          draw(mx);
+        }
+      });
+      canvas.addEventListener("mouseleave", (e) => {
+        draw();
+      });
+
+    }
+    </script>
+  </head>
+  <body>
+    <h2>🌱 function approximation</h2>
+    <p>
+      let's reinvent the wheel! i mean have you seen how many types of wheels
+      there are? do we have enough?
+    </p>
+
+    <p>
+      no i mean let's reinvent sin(x):
+      <canvas id="sin0_plot" width="500" height="280"></canvas>
+      <textarea id="sin0_code" type="text" rows="6" spellcheck="false">
+      </textarea>
+      <small>💡 hit ctrl+enter to update the code. wheel/drag to zoom/pan in plot.</small>
+    </p>
+    <script>
+    sin0_code.value = `
+function good(x) { // cyan
+  return Math.sin(x);
+}
+function bad(x) { // yellow
+  return 0.40528473456935094 * x * (Math.PI - Math.abs(x));
+}
+    `.trim();
+    setup_good_bad("sin0");
+    </script>
+
+    <p>
+      it starts to diverge outside [-pi;pi] and that's a bad sine so let's fix
+      it by wrapping x around inside that interval:
+      <canvas id="sin1_plot" width="500" height="280"></canvas>
+      <textarea id="sin1_code" type="text" rows="11" spellcheck="false">
+      </textarea>
+    </p>
+    <script>
+    sin1_code.value = `
+function good(x) { // cyan
+  return Math.sin(x);
+}
+function bad(x) { // yellow
+  x += Math.PI;
+  x *= (0.5 / Math.PI);
+  x -= Math.floor(x);
+  x *= (2.0 * Math.PI);
+  x -= Math.PI;
+  return 0.40528473456935094 * x * (Math.PI - Math.abs(x));
+}
+    `.trim();
+    setup_good_bad("sin1");
+    </script>
+
+    <p>
+      nice! the dark red plot in the background shows the logarithm of the
+      error between good(x) and bad(x). logarithms helps us "compress" many
+      orders of magnitude into a plottable range. mousing over the highest
+      peaks lets us find the max error of about 0.056. it doesn't sound like
+      much, but please don't fly me to the moon in a rocket that uses this
+      "sine" for navigation.
+    </p>
+
+    <p>
+      i call it a "parabolic sine" because it's just a cleverly mirrored
+      parabola (x**2). try changing Math.abs(x) into just x in the first plot
+      to see what i mean.
+    </p>
+
+    <p>
+      lets cheat a bit and grab a better sine from
+      <a href="https://en.wikipedia.org/wiki/Pad%C3%A9_approximant#Examples">some wiki page</a>
+      <canvas id="sin2_plot" width="500" height="280"></canvas>
+      <textarea id="sin2_code" type="text" rows="19" spellcheck="false">
+      </textarea>
+    </p>
+    <script>
+    sin2_code.value = `
+function good(x) { // cyan
+  return Math.sin(x);
+}
+function bad(x) { // yellow
+  x += Math.PI;
+  x *= (0.5 / Math.PI);
+  x -= Math.floor(x);
+  x *= (2.0 * Math.PI);
+  x -= Math.PI;
+  const c2 =   (445.0 / 12122.0);
+  const c3 = -(2363.0 / 18183.0);
+  const c4 =   (601.0 / 872784.0);
+  const c5 = (12671.0 / 4363920.0);
+  const c6 =   (121.0 / 16662240.0);
+  const xx = x*x;
+  const num = x*(1 + xx*(c3 + xx*(c5)));
+  const denom = 1 + xx*(c2 + xx*(c4 + xx*(c6)));
+  return num / denom;
+}
+    `.trim();
+    setup_good_bad("sin2");
+    </script>
+
+    <p>
+      that's a lot better! around x=0 it's so accurate it even "escapes" the
+      large "dynamic range" of our semi-log error plot. also, a subtle detail i
+      hadn't noticed before i started plotting: if you zoom in on one of the
+      error peaks it's actually a discontinuity; a jump from about -0.0005 to
+      0.0005. since sines are symmetric around x=pi/2 we can fix it by feeding
+      a triangle wave into the sine approximation:
+      <canvas id="sin3_plot" width="500" height="280"></canvas>
+      <textarea id="sin3_code" type="text" rows="17" spellcheck="false">
+      </textarea>
+    </p>
+    <script>
+    sin3_code.value = `
+function good(x) { // cyan
+  return Math.sin(x);
+}
+function bad(x) { // yellow
+  x = (4*Math.abs(x*(.5/Math.PI) - Math.floor(x*(.5/Math.PI) + 3/4) + 1/4) - 1) * (Math.PI/2);
+  // return x; // <-- uncomment to see triangle wave
+  const c2 =   (445.0 / 12122.0);
+  const c3 = -(2363.0 / 18183.0);
+  const c4 =   (601.0 / 872784.0);
+  const c5 = (12671.0 / 4363920.0);
+  const c6 =   (121.0 / 16662240.0);
+  const xx = x*x;
+  const num = x*(1 + xx*(c3 + xx*(c5)));
+  const denom = 1 + xx*(c2 + xx*(c4 + xx*(c6)));
+  return num / denom;
+}
+    `.trim();
+    setup_good_bad("sin3");
+    </script>
+
+    <p>
+      now that's a fine sine! no jumps, just a max error of about 0.0000001, so
+      small that scientific notation is starting to show its utility: 1e-7.
+      please don't fly me to the moon in general, but if you have to, i don't
+      think this sine would be my the biggest problem.
+    </p>
+
+    <p>
+      in fact it might be a bit overkill for our needs
+    </p>
+
+    <p>
+      a quick&amp;bad performance benchmark in C even suggests that our new
+      sine is 30% slower than sinf(x). but the first "good-bad" "parabolic
+      sine" is also about 22% faster. so maybe once we understand how all this
+      works we can find good tradeoffs between speed and accuracy?
+    </p>
+
+    <p>
+      but tbh our original motivation wasn't even performance. we wanted to try
+      doing
+      <a href="https://codeberg.org/uzu/dough/issues/22">
+      minimal/barebones/nostdlib builds of dough</a>,
+      in which case you lose most math functions (except the ones your computer
+      is born with, notably sqrt(x)). froos also found a similar use in
+      <a href="https://garten.salat.dev/101-ks2wat/index.html"> barebones wat
+      compilation</a>.
+    </p>
+
+    <p>
+      anyway this post is also just to get us started and plotting. to get a
+      feel for function approximation without really understanding most of it
+      yet. future posts will explore:
+      <ul>
+        <li>binary representation and manipulation of floating point numbers in
+        C and JS. this is fun and dirty! (and useful!)
+        <li>reinventing exp2(x) with dirty binary tricks and taylor series
+        <li>reinventing log2(x) <em>badly</em> with dirty binary tricks and
+        taylor series
+        <li>better log2f(x) using Padé approximation
+      </ul>
+    </p>
+
+    <p>
+      one last "trick" before i go: in dough we didn't really use exp2/log2,
+      but instead pow(x,y), so why isn't pow(x,y) on the list? well, a cool and
+      pertinent math equivalence is:
+      <blockquote><pre>pow(x,y) = exp2(y * log2(x))</pre></blockquote>
+      now you can see we don't need pow(x,y) if we have the other 2. also,
+      pow(x,y) is a function of 2 variables which seems harder to approximate
+      than 1-variable functions. also-also, in many of our cases x is constant,
+      like pow(10,y), and then we can simply skip the log2() calculation:
+      <blockquote><pre>
+  pow(10,y)
+= exp2(y * log2(10))
+= exp2(y * 3.321928094887362)</pre></blockquote>
+    </p>
+
+    <p>
+      here a quick&amp;bad performance benchmark in C shows a 6&times;
+      speed-up! yessss
+    </p>
+
+    <p>
+      we don't need to replace <tt>sqrt(x)</tt> because our computer already
+      has a square root operation, but should the need ever arise it can be
+      done with <tt>exp2(.5*log2(x))</tt> (because <tt>sqrt(x)==x**.5</tt>).
+    </p>
+
+    <details>
+      <summary id="loc">show page source</summary>
+      <pre id="pre"></pre>
+    </details>
+
+    <script>
+    // render source code
+    const html = document.querySelector("html").outerHTML;
+    const loc = html.split("\n").length;
+    document.querySelector("#pre").textContent = html;
+    document.querySelector("#loc").textContent = `show source (${loc} loc)`;
+    </script>
+  </body>
+</html>
